@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+client/dist/
+dist/
+
+# Runtime data and secrets
+.env
+.env.*
+!.env.example
+server/db/*.db
+server/db/*.db-*
+server/db/*.tmp
+server/uploads/
+*.log
+logs/
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Standalone prototype artifacts
+/index.html
+/ResourceFlow — Interactive Prototype.html

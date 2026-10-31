@@ -1,0 +1,21 @@
+node_modules
+**/node_modules
+client/dist
+dist
+.env
+.env.*
+!.env.example
+server/db/*.db
+server/db/*.db-*
+server/db/*.tmp
+server/uploads
+*.log
+.git
+.github
+.vscode
+.idea
+README.md
+PRD.txt
+test_all_features.mjs
+ResourceFlow — Interactive Prototype.html
+index.html

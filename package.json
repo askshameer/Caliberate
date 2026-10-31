@@ -1,0 +1,19 @@
+{
+  "name": "caliberate",
+  "version": "1.0.0",
+  "description": "Caliberate — Resource Utilization & Deployment Tracker",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && node --watch index.js",
+    "dev:client": "cd client && npx vite --host",
+    "build": "cd client && npx vite build",
+    "start": "cd server && node index.js",
+    "seed": "cd server && node db/init.js --force",
+    "lint": "cd client && npx oxlint",
+    "test": "node test_all_features.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

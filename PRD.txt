@@ -1,0 +1,536 @@
+# Product Requirements Document: Resource Utilization & Deployment Tracker (RUDT)
+
+Before diving in, one honest caveat: I can't generate actual image files or screenshots. What I can do is give you detailed text wireframes for each key screen (layout, components, interactions) that a designer can turn into Figma mockups in an afternoon, or that you could feed into a UI generation tool like v0.dev or Figma Make. I've included those in Section 8.
+
+---
+
+## 1. Overview
+
+**Product name:** Resource Utilization & Deployment Tracker (working title)
+
+**Problem statement:** Today there is no single source of truth for who is deployed where, who is on bench, for how long, and what skills are sitting idle. Utilization decisions are made from spreadsheets and Slack threads, which means bench time goes unnoticed, upcoming project roll-offs surprise managers, and open internal positions get filled externally while qualified employees sit idle.
+
+**Goal:** A single internal web application that tracks every resource's deployment status in real time, flags bench aging automatically, forecasts upcoming roll-offs, and connects idle talent to open internal demand.
+
+**Success looks like:**
+- Average bench duration reduced by 30% within 6 months of launch
+- 100% of resources have an accurate status (no "unknown" state) within 30 days
+- Managers know about project end dates at least 30 days in advance for 95% of allocations
+- 50%+ of internal openings filled from the bench pool rather than external hiring
+
+---
+
+## 2. Users & Roles
+
+| Role | Who they are | Primary need |
+|---|---|---|
+| **Admin** | IT / platform owners, 2–5 people | Full control: configuration, user management, audit, integrations |
+| **Operations** | Resource Management / Staffing / PMO team | Search, allocate, update status, manage billing & customer data, pull reports |
+| **Manager** | Delivery / practice / people managers | Visibility into their team's utilization, roll-off risk, and skills |
+| **Resource** | Every employee | Maintain their own profile, find and apply to internal openings |
+
+### 2.1 Permission Matrix
+
+| Capability | Admin | Operations | Manager | Resource |
+|---|:-:|:-:|:-:|:-:|
+| View all employees | ✅ | ✅ | Own team only | Self only |
+| Add / remove / edit employees | ✅ | ✅ | ❌ | Edit own profile (limited fields) |
+| Change deployment status | ✅ | ✅ | Request only | ❌ |
+| View billing rates | ✅ | ✅ | Configurable (default: off) | ❌ |
+| View customer names | ✅ | ✅ | ✅ (team's projects) | ✅ (own assignment) |
+| Create / edit projects & allocations | ✅ | ✅ | ❌ | ❌ |
+| Post internal job openings | ✅ | ✅ | ✅ (for own projects) | ❌ |
+| Apply to openings | ❌ | ❌ | ❌ | ✅ |
+| Search by skill / cert | ✅ | ✅ | Own team | ❌ |
+| Download reports / metrics | ✅ | ✅ | Own team | ❌ |
+| Configure bench threshold | ✅ | ✅ | ❌ | ❌ |
+| Manage roles & users | ✅ | ❌ | ❌ | ❌ |
+| View audit log | ✅ | Read-only | ❌ | ❌ |
+| Manage integrations (HRIS, SSO) | ✅ | ❌ | ❌ | ❌ |
+
+Roles should be additive (a Manager who is also on the Ops team can hold both). Implement via RBAC with permission strings, not hardcoded role checks, so you can add roles like "Finance" or "Sales" later.
+
+---
+
+## 3. Core Concepts & Status Model
+
+### 3.1 Resource Status
+
+Your brief mentions "deployed," "allocated," and "bench." I recommend expanding to a clearer state machine, because the difference between "assigned but hasn't started" and "billing today" matters a lot for forecasting:
+
+| Status | Meaning | Counts as utilized? |
+|---|---|---|
+| **Deployed** | Actively working and billing on a customer project | Yes |
+| **Allocated** | Assigned to a project with a future start date | Soft yes (pipeline) |
+| **Bench** | No current or upcoming allocation; available | No |
+| **Shadow / Internal** | On a non-billable internal project, training, or shadowing | Partially (configurable) |
+| **On Leave** | Extended leave (maternity, sabbatical, medical) | Excluded from bench metrics |
+| **Notice Period** | Resigned, serving notice | Excluded from staffing pool |
+| **Inactive** | Exited employee (soft-deleted, retained for history) | N/A |
+
+**Bench clock rules:**
+- Bench days start counting the day after the last Deployed/Allocated end date (or join date for new hires)
+- Clock pauses during On Leave
+- Clock resets to zero when status changes to Deployed or Allocated
+- Partial allocations (e.g., 50% on one project) should be tracked; a resource at 50% is "partially benched" and should appear in a separate view
+
+### 3.2 Bench Threshold & Flagging
+
+- Default threshold: **15 days** (configurable by Admin/Ops at a global level)
+- Support **tiered thresholds**: e.g., Amber at 10 days, Red at 15 days, Critical at 30 days
+- Allow **per-practice / per-skill overrides** (e.g., niche SAP consultants may reasonably sit longer than Java developers)
+- Every threshold change is logged with who changed it, when, and old/new values
+
+---
+
+## 4. Functional Requirements
+
+### 4.1 Employee Management (Ops, Admin)
+
+- **FR-1.1** Create employee record with: employee ID, name, email, designation, practice/department, location, reporting manager, join date, employment type (FTE/contractor), primary skill, cost center
+- **FR-1.2** Bulk import via CSV/Excel with validation and error report
+- **FR-1.3** Sync from HRIS (Workday, BambooHR, SAP SuccessFactors, etc.) — nightly at minimum, with the HRIS as source of truth for identity and org hierarchy
+- **FR-1.4** Soft-delete on exit; retain full history for reporting
+- **FR-1.5** Change history on every field (who, when, before/after)
+
+### 4.2 Project & Customer Management (Ops, Admin)
+
+- **FR-2.1** Create customer records: name, industry, account manager, region, active/inactive
+- **FR-2.2** Create project records: name, customer, project manager, start/end dates, billing type (T&M / fixed / retainer), status (pipeline / active / closed)
+- **FR-2.3** Optional: mask customer names for certain roles (some clients have confidentiality requirements; show as "Client-042" to Resource role)
+
+### 4.3 Allocation Management (Ops, Admin)
+
+- **FR-3.1** Allocate a resource to a project with: role on project, start date, end date, allocation % (0–100), billing rate, billable Y/N
+- **FR-3.2** Prevent over-allocation (>100% across concurrent projects) with a warning override for Ops
+- **FR-3.3** Extend, shorten, or end an allocation; status auto-recalculates
+- **FR-3.4** Roll-off pipeline: list of all allocations ending in the next 15/30/60/90 days
+- **FR-3.5** Managers can **request** an allocation change; Ops approves/rejects (simple two-step workflow)
+
+### 4.4 Bench Management (Ops, Admin, Manager)
+
+- **FR-4.1** Bench dashboard: all resources currently on bench, sortable by days on bench, skill, location, practice
+- **FR-4.2** Color coding based on tiered thresholds (green / amber / red / dark red)
+- **FR-4.3** Bench aging distribution chart (0–7, 8–15, 16–30, 31–60, 60+ days)
+- **FR-4.4** Bench cost estimate: days on bench × loaded daily cost (visible to Ops/Admin only)
+- **FR-4.5** Bench notes: Ops can add notes per resource ("interviewing with Client X on Friday", "in training until 20th")
+- **FR-4.6** Automated notifications: email/Slack/Teams alert to the resource's manager and Ops when a resource crosses each threshold
+
+### 4.5 Manager View (Manager)
+
+- **FR-5.1** Team dashboard: headcount, # deployed, # allocated, # bench, # on leave, utilization %
+- **FR-5.2** Team roster with current status, project, customer, end date, days on bench
+- **FR-5.3** Roll-off alerts for team members ending in the next 30 days
+- **FR-5.4** Skill & certification search within team ("who on my team has AWS SA Pro?")
+- **FR-5.5** Certification expiry tracker (flag certs expiring in the next 90 days)
+- **FR-5.6** Drill-down into any team member's full profile
+- **FR-5.7** Multi-level hierarchy: a senior manager sees their whole org tree, not just direct reports
+
+### 4.6 Resource Self-Service (Resource)
+
+- **FR-6.1** View own profile and current deployment status, project, end date
+- **FR-6.2** Upload resume (PDF/DOCX, max 5 MB, versioned — keep the last 5)
+- **FR-6.3** **Resume parsing** to auto-suggest skills and experience on upload (see Tech Stack)
+- **FR-6.4** Add/edit/remove skills with proficiency level (Beginner / Intermediate / Advanced / Expert) and years of experience
+- **FR-6.5** Skills from a **controlled taxonomy** with free-text fallback that goes to an Ops review queue (prevents "ReactJS" vs "React.js" vs "React" fragmentation)
+- **FR-6.6** Add certifications: name, issuer, date obtained, expiry date, credential URL, upload proof
+- **FR-6.7** Add project experience: client (internal name or anonymized), role, duration, tech stack, description
+- **FR-6.8** Browse internal openings with a **match score** based on skill overlap
+- **FR-6.9** Apply to openings; track application status (Applied → Shortlisted → Interview → Selected / Rejected)
+- **FR-6.10** Set availability preferences: willing to relocate, preferred locations, open to travel, preferred domains
+- **FR-6.11** Profile completeness meter with nudges (incomplete profiles reduce match quality)
+
+### 4.7 Internal Job Marketplace (Ops, Manager post; Resource apply)
+
+- **FR-7.1** Create opening: project, role, required skills (must-have / nice-to-have), experience range, location, start date, duration, # positions
+- **FR-7.2** System auto-suggests top bench candidates ranked by match score when an opening is created
+- **FR-7.3** Ops can directly "propose" a bench resource to an opening without the resource applying
+- **FR-7.4** Application pipeline view (Kanban) per opening
+- **FR-7.5** Closing an opening with a selected candidate auto-creates the allocation (with Ops confirmation)
+
+### 4.8 Search & Reporting (Ops, Admin; scoped for Manager)
+
+- **FR-8.1** Global search with filters: status, skill, cert, location, practice, customer, project, bench days, availability date
+- **FR-8.2** Saved searches
+- **FR-8.3** Export to CSV/Excel for any table view
+- **FR-8.4** Scheduled reports (weekly bench report emailed every Monday to leadership)
+- **FR-8.5** Standard reports:
+  - Utilization by practice / location / month
+  - Bench aging report
+  - Roll-off forecast (next 90 days)
+  - Skill inventory (supply) vs. open demand
+  - Revenue at risk (allocations ending without a renewal)
+  - Time-to-deploy (average days from bench start to next deployment)
+
+### 4.9 Administration (Admin)
+
+- **FR-9.1** User & role management; assign multiple roles
+- **FR-9.2** Configure thresholds, skill taxonomy, designations, practices, locations
+- **FR-9.3** Integration settings: SSO (SAML/OIDC), HRIS sync, Slack/Teams webhooks
+- **FR-9.4** Full audit log with filters and export
+- **FR-9.5** Feature flags for gradual rollout
+
+---
+
+## 5. Additional Features You May Not Have Considered
+
+These are ranked by value-to-effort ratio in my view:
+
+1. **Roll-off forecasting** (already covered above, but worth emphasizing): the biggest lever for reducing bench time is knowing 30–60 days in advance that someone is coming free, not discovering it after the fact.
+
+2. **Supply vs. demand heatmap**: a matrix of skills × availability windows showing where you have surplus (bench) and where you have gaps (open positions). This is what staffing leads actually want to look at.
+
+3. **Bench cost visibility**: attaching a dollar figure to bench time changes the conversation with leadership. Even a rough loaded cost per day is powerful.
+
+4. **Skill decay / recency**: a skill last used 4 years ago is not the same as one used last month. Track "last used" per skill and weight matching accordingly.
+
+5. **Learning recommendations for bench resources**: if someone is on bench and the top open positions all need Kubernetes, suggest a Kubernetes course. Bench time becomes upskilling time. Integrate with your LMS or just link to Udemy/Pluralsight.
+
+6. **Bench check-in cadence**: an automatic weekly prompt to bench resources asking "what did you work on / learn this week?" — keeps them engaged and gives Ops a record.
+
+7. **Utilization targets and scorecards**: set targets per practice (e.g., 85%) and show actuals vs. target on the manager dashboard.
+
+8. **Extension likelihood flag**: for each allocation nearing its end, the project manager marks "likely to extend / unlikely / unknown." This turns a hard date into a probability-weighted forecast.
+
+9. **Contractor vs. FTE lens**: if you use contractors, bench for a contractor means you should be considering ending the contract — a very different action than for an FTE.
+
+10. **Anonymized profile export**: one-click generation of a client-ready profile (no employee ID, no internal rates, standardized format) for proposals.
+
+11. **Mobile-responsive design** rather than a native app: managers will check roll-off alerts from their phone; resources will update skills from a laptop. Responsive web covers both.
+
+12. **"Who's free" quick view for sales**: a lightweight read-only role (Sales) that sees available skills and counts without names or rates — helps them sell what you can actually staff.
+
+---
+
+## 6. Non-Functional Requirements
+
+| Area | Requirement |
+|---|---|
+| **Authentication** | SSO via company IdP (Okta / Azure AD / Google Workspace) using OIDC or SAML. No local passwords. |
+| **Authorization** | Server-side enforcement on every API call; never trust the client for role scoping |
+| **Data privacy** | Billing rates and cost data encrypted at rest and access-logged. Comply with local employment data regulations (GDPR if EU employees). |
+| **Audit** | Every write operation logged with actor, timestamp, entity, before/after |
+| **Performance** | Dashboard loads < 2 s for 5,000 employees; search results < 1 s |
+| **Availability** | 99.5% during business hours; this is internal, not customer-facing, so don't over-engineer |
+| **Scalability** | Design for 10× current headcount without architectural change |
+| **Backup** | Daily automated DB backups, 30-day retention, tested restore |
+| **Accessibility** | WCAG 2.1 AA — color coding must have a non-color indicator (icon or label) for red flags |
+| **Browser support** | Last 2 versions of Chrome, Edge, Firefox, Safari |
+
+---
+
+## 7. Data Model (Simplified)
+
+```
+Employee
+  id, employee_code, name, email, designation, practice_id, location_id,
+  manager_id (self-ref), join_date, employment_type, status, status_since,
+  bench_start_date (nullable), loaded_daily_cost, is_active
+
+Skill
+  id, name, category, is_approved
+
+EmployeeSkill
+  employee_id, skill_id, proficiency, years_experience, last_used_date
+
+Certification
+  id, employee_id, name, issuer, obtained_date, expiry_date,
+  credential_url, proof_file_url, verified_by
+
+Customer
+  id, name, industry, region, account_manager_id, is_active, is_confidential
+
+Project
+  id, customer_id, name, pm_id, start_date, end_date, billing_type, status
+
+Allocation
+  id, employee_id, project_id, role, start_date, end_date, allocation_pct,
+  billing_rate, is_billable, extension_likelihood, created_by
+
+Opening
+  id, project_id, role, required_skills (json), nice_to_have (json),
+  min_exp, max_exp, location_id, start_date, duration_months,
+  positions, status, posted_by
+
+Application
+  id, opening_id, employee_id, match_score, status, applied_at, notes
+
+Resume
+  id, employee_id, file_url, version, uploaded_at, parsed_data (json)
+
+BenchNote
+  id, employee_id, note, created_by, created_at
+
+ThresholdConfig
+  id, scope (global / practice / skill), scope_id, amber_days, red_days,
+  critical_days, updated_by, updated_at
+
+AuditLog
+  id, actor_id, action, entity_type, entity_id, before (json), after (json), ts
+```
+
+The key computed field is `days_on_bench = today − bench_start_date − leave_days_in_period`. Compute it in a nightly job and store it, rather than on every read, so the dashboard is fast and notifications fire reliably.
+
+---
+
+## 8. UI/UX Wireframes (Text)
+
+Design principles: dense-but-scannable tables for Ops, card-based dashboards for Managers, form-first simplicity for Resources. Status colors are consistent everywhere: Deployed = green, Allocated = blue, Bench = amber/red by aging, On Leave = grey.
+
+### 8.1 Global Layout
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ [Logo] RUDT      🔍 Search employees, skills, projects...   🔔 3  👤 │
+├──────────┬─────────────────────────────────────────────────────────┤
+│          │                                                         │
+│ Dashboard│                                                         │
+│ Employees│                                                         │
+│ Projects │              <page content>                             │
+│ Bench    │                                                         │
+│ Openings │                                                         │
+│ Reports  │                                                         │
+│ Settings │                                                         │
+│          │                                                         │
+└──────────┴─────────────────────────────────────────────────────────┘
+```
+Left nav items shown are filtered by role. Resource role sees only: My Profile, Openings, My Applications.
+
+### 8.2 Operations Dashboard
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Operations Dashboard                        [Practice ▾] [Location ▾]│
+├────────────┬────────────┬────────────┬────────────┬─────────────────┤
+│ Total      │ Deployed   │ Allocated  │ On Bench   │ Utilization     │
+│   1,240    │   1,012    │    68      │   142      │    82.4%        │
+│            │  ▲ 2.1%    │            │ 🔴 47 >15d │  target 85%     │
+├────────────┴────────────┴────────────┴────────────┴─────────────────┤
+│ Bench Aging                        │ Roll-offs Next 30 Days         │
+│ ▓▓▓▓▓▓▓▓░░ 0–7d      52            │ ●●●●●●●● 34 resources          │
+│ ▓▓▓▓▓░░░░░ 8–15d     43            │ 12 likely extend               │
+│ ▓▓▓▓░░░░░░ 16–30d    31  🟠        │ 9 unlikely     ← action        │
+│ ▓▓░░░░░░░░ 31–60d    12  🔴        │ 13 unknown     ← follow up     │
+│ ▓░░░░░░░░░ 60+d       4  🔴🔴      │               [View pipeline →]│
+├────────────────────────────────────┴───────────────────────────────┤
+│ Red Flags — Bench > 15 days (47)                       [Export CSV] │
+│ ┌────────────┬──────────────┬──────────┬───────┬─────────┬─────────┐ │
+│ │ Name       │ Primary Skill│ Practice │ Days  │ Manager │ Actions │ │
+│ ├────────────┼──────────────┼──────────┼───────┼─────────┼─────────┤ │
+│ │🔴 A. Kumar │ Java/Spring  │ Digital  │  62   │ R. Shah │ [Match] │ │
+│ │🔴 M. Chen  │ Data Eng     │ Data     │  41   │ L. Park │ [Match] │ │
+│ │🟠 S. Patel │ React        │ Digital  │  19   │ R. Shah │ [Match] │ │
+│ │ ...                                                              │ │
+│ └────────────┴──────────────┴──────────┴───────┴─────────┴─────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+Clicking **[Match]** opens a side panel showing open positions ranked by match score for that resource.
+
+### 8.3 Employee Directory (Ops)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Employees (1,240)                     [+ Add Employee] [Import CSV]   │
+│ 🔍 Search...   Status ▾  Skill ▾  Cert ▾  Location ▾  Bench days ▾   │
+│ [Save search]                                                        │
+├───┬──────────┬────────────┬────────────┬──────────┬──────────┬───────┤
+│   │ Name     │ Status     │ Project    │ Customer │ End Date │ Rate  │
+├───┼──────────┼────────────┼────────────┼──────────┼──────────┼───────┤
+│ ● │ J. Doe   │ 🟢 Deployed│ Phoenix    │ Acme     │ 30 Nov   │ $850  │
+│ ● │ A. Kumar │ 🔴 Bench 62│ —          │ —        │ —        │ —     │
+│ ● │ P. Rao   │ 🔵 Allocated│ Atlas     │ Globex   │ starts 1 Oct     │
+│ ● │ L. Wong  │ ⚪ On Leave │ —          │ —        │ back 15 Oct      │
+└───┴──────────┴────────────┴────────────┴──────────┴──────────┴───────┘
+Row click → slide-over panel with full profile, tabs: Overview | Allocations | Skills | Certs | Resume | Notes | History
+```
+
+### 8.4 Manager Dashboard
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ My Team — R. Shah (Digital Practice)          [Direct reports ▾ Org] │
+├─────────────┬─────────────┬─────────────┬─────────────┬─────────────┤
+│ Team: 24    │ Deployed 19 │ Allocated 2 │ Bench 3     │ Util 79%    │
+│             │             │             │ 🔴 2 > 15d  │ ⚠ below 85% │
+├─────────────┴─────────────┴─────────────┴─────────────┴─────────────┤
+│ ⚠ Attention Needed                                                   │
+│ • A. Kumar — bench 62 days                          [Find opening →] │
+│ • S. Patel — bench 19 days                          [Find opening →] │
+│ • J. Doe — Phoenix ends 30 Nov (28 days) — extension: Unknown        │
+│                                                     [Update →]       │
+│ • M. Iyer — AWS SA cert expires 12 Dec                               │
+├──────────────────────────────────────────────────────────────────────┤
+│ Team Roster              🔍 skill or cert, e.g. "Kubernetes"         │
+│ ┌──────────┬────────────┬──────────┬──────────┬────────────────────┐ │
+│ │ Name     │ Status     │ Customer │ End      │ Top Skills         │ │
+│ ├──────────┼────────────┼──────────┼──────────┼────────────────────┤ │
+│ │ J. Doe   │ 🟢 Deployed│ Acme     │ 30 Nov   │ React, Node, AWS   │ │
+│ │ A. Kumar │ 🔴 Bench 62│ —        │ —        │ Java, Spring, K8s  │ │
+│ └──────────┴────────────┴──────────┴──────────┴────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+Note: no billing rate column by default for managers.
+
+### 8.5 Resource — My Profile
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ My Profile                        Profile completeness ▓▓▓▓▓▓▓░░ 72% │
+│                                   Add certifications to reach 85%    │
+├──────────────────────────────────────────────────────────────────────┤
+│ 👤 A. Kumar · Senior Engineer · Digital · Bangalore                  │
+│ Status: 🔴 On Bench since 12 Jul (62 days)                           │
+│ Manager: R. Shah                                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│ 📄 Resume          Kumar_Resume_v3.pdf · uploaded 2 Sep   [Upload new]│
+│                    We found 4 skills in your resume not on your       │
+│                    profile: Kafka, Terraform, GraphQL, Redis  [Add all]│
+├──────────────────────────────────────────────────────────────────────┤
+│ 🛠 Skills (12)                                          [+ Add skill] │
+│  Java ●●●●○ Expert · 8 yrs · last used Jul 2026          [edit] [×]  │
+│  Spring Boot ●●●●○ Expert · 6 yrs                        [edit] [×]  │
+│  Kubernetes ●●●○○ Advanced · 3 yrs                       [edit] [×]  │
+├──────────────────────────────────────────────────────────────────────┤
+│ 🎓 Certifications (2)                                    [+ Add cert] │
+│  CKA — CNCF · expires Mar 2027 ✅ verified                            │
+│  AWS Developer Assoc. — expires 12 Dec 2026 ⚠ expiring soon          │
+├──────────────────────────────────────────────────────────────────────┤
+│ 💼 Experience (5)                                  [+ Add experience] │
+│ 🌍 Preferences   Relocate: Yes · Travel: Up to 25% · Domains: BFSI   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.6 Resource — Internal Openings
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Openings (23)      Sort: Best match ▾    Location ▾  Start date ▾    │
+├──────────────────────────────────────────────────────────────────────┤
+│ ┌──────────────────────────────────────────────────────────────────┐ │
+│ │ Senior Java Developer · Project Atlas · Globex          92% match│ │
+│ │ Bangalore / Hybrid · Starts 1 Oct · 12 months · 2 positions      │ │
+│ │ ✅ Java  ✅ Spring Boot  ✅ Kubernetes  ✅ Kafka  ⚠ Missing: Camel │ │
+│ │                                            [View details] [Apply]│ │
+│ └──────────────────────────────────────────────────────────────────┘ │
+│ ┌──────────────────────────────────────────────────────────────────┐ │
+│ │ Backend Engineer · Project Nova · Initech                74% match│ │
+│ │ ...                                                              │ │
+│ └──────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.7 Admin — Threshold Configuration
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Settings › Bench Thresholds                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ Global default                                                       │
+│   🟠 Amber after  [10] days     🔴 Red after [15] days               │
+│   🔴🔴 Critical after [30] days                                       │
+│                                                                      │
+│ Overrides                                              [+ Add override]│
+│   Practice: SAP           Amber 20 · Red 30 · Critical 45   [edit]   │
+│   Skill: Mainframe/COBOL  Amber 20 · Red 30 · Critical 60   [edit]   │
+│                                                                      │
+│ Notifications when threshold crossed:                                │
+│   ☑ Email manager   ☑ Email Ops team   ☑ Slack #staffing   ☐ Teams  │
+│                                                                      │
+│ Last changed by R. Admin on 3 Sep 2026 (Red: 20 → 15)  [View history]│
+│                                                     [Save changes]   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Recommended Technology Stack
+
+I'm giving you a primary recommendation plus a leaner alternative, since the right answer depends on your team's existing skills and headcount.
+
+### 9.1 Primary Recommendation (scales well, mainstream hiring pool)
+
+| Layer | Choice | Why |
+|---|---|---|
+| **Frontend** | React 18 + TypeScript + Vite | Ubiquitous, easy to hire for, fast dev loop |
+| **UI components** | shadcn/ui + Tailwind CSS | Accessible, customizable, no heavy design system lock-in |
+| **Tables & charts** | TanStack Table, Recharts | Ops screens are table-heavy; TanStack handles sorting/filtering/virtualization |
+| **State / data fetching** | TanStack Query | Caching, optimistic updates, minimal boilerplate |
+| **Backend** | Node.js + NestJS (TypeScript) | Shared language with frontend, strong RBAC/guards pattern, opinionated structure |
+| **API style** | REST with OpenAPI spec | Simple, well understood; generate typed client for frontend |
+| **Database** | PostgreSQL 16 | Relational data, strong JSONB support for skills/parsed resumes, row-level security available |
+| **ORM** | Prisma | Type-safe, good migrations, works well with Postgres |
+| **Search** | PostgreSQL full-text + `pg_trgm` initially; Meilisearch or OpenSearch if you exceed ~20k employees | Avoid running Elasticsearch on day one |
+| **Auth** | OIDC via company IdP (Okta / Azure AD); Auth.js or Passport | No password management burden; roles via IdP groups mapped to app roles |
+| **File storage** | S3 / Azure Blob / GCS with pre-signed URLs | Resumes and cert proofs; never store files in the DB |
+| **Resume parsing** | Start with an LLM API (Claude / GPT) with a structured-output schema; fall back to Affinda or Sovren if you need on-prem | LLM extraction is now cheaper and more accurate than legacy parsers for this use case |
+| **Skill matching** | Weighted Jaccard on skill taxonomy + proficiency + recency; optionally add embeddings (pgvector) for fuzzy matching | Start simple, add semantic matching once you have data |
+| **Background jobs** | BullMQ (Redis) | Nightly bench recalculation, HRIS sync, notification dispatch |
+| **Notifications** | SendGrid / SES for email; Slack & Teams incoming webhooks | |
+| **Reporting exports** | ExcelJS for XLSX; cron-triggered jobs for scheduled reports | |
+| **Infrastructure** | Docker → deploy to AWS ECS / Azure Container Apps / GCP Cloud Run | Managed containers; avoid Kubernetes for an internal tool of this size |
+| **CI/CD** | GitHub Actions | |
+| **Observability** | Sentry (errors) + Grafana Cloud or Datadog (metrics/logs) | |
+| **Testing** | Vitest, Playwright for E2E, Postman/Newman for API contract tests | |
+
+### 9.2 Leaner Alternative (small team, faster to ship)
+
+| Layer | Choice |
+|---|---|
+| Full-stack | **Next.js 14 (App Router) + TypeScript** with server actions — one codebase, one deploy |
+| DB + Auth + Storage | **Supabase** (Postgres, row-level security for RBAC, built-in auth with SSO, file storage) |
+| Jobs | Supabase Edge Functions + pg_cron, or Trigger.dev |
+| Hosting | Vercel |
+
+This gets you to an MVP in roughly half the time. The trade-off is less control and some vendor coupling; it's a perfectly reasonable choice for a company under ~3,000 employees.
+
+### 9.3 If your team is Java / .NET / Python
+
+The architecture is identical; swap the backend:
+- **Java**: Spring Boot 3 + Spring Security + JPA
+- **.NET**: ASP.NET Core 8 + EF Core + Identity
+- **Python**: FastAPI + SQLAlchemy + Pydantic (particularly good if you plan to lean into ML-based matching)
+
+Don't fight your team's existing skills for an internal tool.
+
+---
+
+## 10. Phased Roadmap
+
+**Phase 1 — MVP (8–10 weeks)**
+Employee & project CRUD, allocation management, status engine, bench dashboard with configurable thresholds, Ops and Admin roles, SSO, CSV import, basic export. *This alone solves the "we don't know who's on bench" problem.*
+
+**Phase 2 — Manager & Resource (6–8 weeks)**
+Manager dashboard with team scoping, roll-off pipeline, resource self-service profile, skills & certs, resume upload with parsing, notifications.
+
+**Phase 3 — Marketplace & Intelligence (6–8 weeks)**
+Internal openings, match scoring, applications workflow, supply/demand heatmap, scheduled reports, bench cost, HRIS sync.
+
+**Phase 4 — Optimization (ongoing)**
+Learning recommendations, extension likelihood forecasting, semantic skill matching, Sales read-only view, anonymized profile export.
+
+---
+
+## 11. Metrics to Track Post-Launch
+
+- Average and median bench days (overall, by practice)
+- % of resources in red-flag state
+- Time-to-deploy from bench
+- % of internal openings filled from bench
+- Roll-off visibility lead time (how far in advance end dates are known)
+- Profile completeness rate
+- Weekly active users by role (adoption signal, especially for Resource role)
+- Data accuracy: % of allocations with an end date set
+
+---
+
+## 12. Open Questions for You
+
+1. **What HRIS do you use today?** This determines the integration effort and whether the org hierarchy can be synced automatically.
+2. **Approximate headcount?** Under 1,000, 1,000–5,000, or more? It affects the search and infra choices above.
+3. **Should Managers see billing rates?** I've defaulted to no, but some organizations want practice heads to see margin.
+4. **Do you have partial allocations today** (someone 50% on two projects), or is it always 100%?
+5. **Is there an existing skills taxonomy** (or one from your HRIS/LMS) you'd want to seed from?
+6. **Contractors**: are they in scope, and should bench rules differ for them?
+7. **Approval workflow depth**: is a simple Manager-requests → Ops-approves flow enough, or do you need multi-step approvals?
+
+Once you answer these, I can tighten the spec, and if you'd like, I can also draft the API contract (OpenAPI), the Postgres schema as DDL, or a detailed match-scoring algorithm as the next step.

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Install workspace tooling
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      - name: Lint client
+        run: npm --prefix client run lint
+
+      - name: Build production client
+        run: npm run build
+
+      - name: Audit production server dependencies
+        run: npm audit --prefix server --omit=dev
+
+      - name: Start Caliberate in demo mode
+        env:
+          DEMO_MODE: "true"
+          SEED_DEMO_DATA: "true"
+          JWT_SECRET: ci-only-secret-with-more-than-32-characters
+        run: |
+          npm run dev > /tmp/caliberate.log 2>&1 &
+          npx --yes wait-on http://localhost:5173 http://localhost:3001/api/health --timeout 90000
+
+      - name: Run end-to-end feature suite
+        env:
+          DEMO_MODE: "true"
+        run: npm test
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/caliberate.log
