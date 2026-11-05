@@ -6,12 +6,14 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --text-xs: 0.875rem;
+  --text-xs: 0.8125rem;
   --text-xs--line-height: 1.5;
-  --text-sm: 1rem;
+  --text-sm: 0.875rem;
   --text-sm--line-height: 1.5;
-  --text-base: 1rem;
+  --text-base: 0.9375rem;
   --text-base--line-height: 1.5;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.5;
   --font-weight-extrabold: 700;
   --color-brand-50: #f0fdfa;
   --color-brand-100: #ccfbf1;

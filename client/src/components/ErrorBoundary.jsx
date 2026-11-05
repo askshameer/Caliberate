@@ -29,7 +29,7 @@ export default class ErrorBoundary extends React.Component {
             The workspace hit an unexpected error. Your data is safe. Reload the page to continue.
           </p>
           {!import.meta.env.PROD && this.state.error && (
-            <pre className="mt-3 max-h-32 overflow-auto rounded-lg bg-slate-950 p-3 text-left text-[10px] text-rose-300">
+            <pre className="mt-3 max-h-32 overflow-auto rounded-lg bg-slate-950 p-3 text-left text-xs text-rose-300">
               {String(this.state.error?.message || this.state.error)}
             </pre>
           )}
