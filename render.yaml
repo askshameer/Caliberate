@@ -1,0 +1,41 @@
+# Render Blueprint for Caliberate (Express API + built React client in one Docker service).
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: caliberate
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter            # persistent disks require a paid instance type
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: caliberate-data
+      mountPath: /data       # SQLite DB + uploads live here and survive redeploys
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: JWT_SECRET
+        generateValue: true  # Render generates a long random secret
+      - key: ADMIN_EMAIL
+        sync: false          # you enter this in the Render dashboard
+      - key: ADMIN_PASSWORD
+        sync: false          # 12+ chars with upper, lower, number and symbol
+      - key: ADMIN_NAME
+        value: Platform Administrator
+      - key: DB_PATH
+        value: /data/caliberate.db
+      - key: UPLOAD_DIR
+        value: /data/uploads
+      - key: DEMO_MODE
+        value: "false"
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: strict
+      - key: TRUST_PROXY
+        value: "1"
