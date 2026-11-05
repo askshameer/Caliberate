@@ -98,7 +98,7 @@ export const config = {
     authMax: int(process.env.AUTH_RATE_LIMIT_MAX, 20),
   },
   logFormat: process.env.LOG_FORMAT || (isProduction ? 'combined' : 'dev'),
-  appVersion: process.env.APP_VERSION || '1.0.0',
+  appVersion: process.env.APP_VERSION || '1.1.0',
 };
 
 export default config;

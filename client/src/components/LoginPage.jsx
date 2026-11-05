@@ -101,7 +101,7 @@ export default function LoginPage() {
         </div>
         <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
           <span className="h-2 w-2 rounded-full bg-teal-400 animate-pulse" />
-          <span>Enterprise Identity Service · PRD v1.0</span>
+          <span>Enterprise Identity Service · v1.1.0</span>
         </div>
       </div>
 
