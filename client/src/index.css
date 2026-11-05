@@ -438,3 +438,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .workspace-content .page-heading > div:has(h1) p { font-size: var(--text-base); line-height: 1.6; }
 .person-drawer .sticky { flex-wrap: wrap; }
 .person-drawer .sticky > div { min-width: 0; flex: 1 1 12rem; }
+
+/* Login card illustration */
+.login-illustration { display: block; width: 100%; max-width: 360px; max-height: 240px; object-fit: contain; margin: 22px auto 0; user-select: none; pointer-events: none; }
+@media (max-width: 480px) { .login-illustration { max-width: 260px; max-height: 170px; margin-top: 16px; } }

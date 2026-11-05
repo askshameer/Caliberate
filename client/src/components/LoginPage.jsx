@@ -3,6 +3,7 @@ import {
   Layers, Shield, ArrowRight, Lock, Mail, Eye, EyeOff, AlertTriangle, Users, CalendarDays, ChartNoAxesCombined
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import teamIllustration from '../assets/team-illustration.png';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
@@ -93,6 +94,7 @@ export default function LoginPage() {
             </div>
             <button type="submit" className="login-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in to workspace'}<ArrowRight size={18} /></button>
           </form>
+          <img src={teamIllustration} className="login-illustration" alt="A team collaborating around a laptop and a growth chart" loading="lazy" />
           {configLoaded && !configError && <p className="login-access-note">Need access? Contact your Caliberate administrator to set up your account.</p>}
           <div className="login-security"><Shield size={14} /> Secure sign-in &middot; Role-based access</div>
         </section>
