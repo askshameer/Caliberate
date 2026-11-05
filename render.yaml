@@ -30,9 +30,9 @@ services:
       - key: UPLOAD_DIR
         value: /data/uploads
       - key: DEMO_MODE
-        value: "false"
+        value: "true"
       - key: SEED_DEMO_DATA
-        value: "false"
+        value: "true"
       - key: COOKIE_SECURE
         value: "true"
       - key: COOKIE_SAME_SITE

@@ -576,6 +576,14 @@ export async function getDb() {
     await seedDatabase(_db);
   } else {
     if (config.seedDemoData) {
+      // An existing database (e.g. one first created with only the bootstrap admin)
+      // may be missing the demo accounts/dataset. Backfill them once; every insert
+      // is INSERT OR IGNORE so existing records are never overwritten.
+      const demoUser = _db.exec("SELECT COUNT(*) FROM users WHERE id = 'usr-ops'");
+      const peopleCount = _db.exec('SELECT COUNT(*) FROM people');
+      if (demoUser[0].values[0][0] === 0 || peopleCount[0].values[0][0] === 0) {
+        await seedDatabase(_db);
+      }
       seedHiringDemo(_db);
     }
     saveDb();
