@@ -228,6 +228,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   .demo-grid { grid-template-columns: 1fr; }
   .login-footer > span:last-child { display: none; }
 }
+
+/* Laptop fit (≈1025–1600px): the fixed sidebar eats horizontal space, so
+   reclaim width and relax dense multi-column grids to render in one viewport
+   on smaller laptops without horizontal cramping. */
+@media (min-width: 64.0625em) and (max-width: 99.9375em) {
+  .workspace-sidebar { width: 15rem; }
+  .workspace-content { padding: 24px 20px; }
+  .workspace-content h1 { font-size: 1.5625rem; }
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-content .grid.xl\:grid-cols-12 { grid-template-columns: 1fr; }
+  .workspace-content .grid.xl\:grid-cols-12 > * { grid-column: 1 / -1; }
+  .workspace-content .grid.xl\:grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-content .grid.xl\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
@@ -270,6 +284,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .metric-grid > div > div:last-child { flex-wrap: wrap; gap: 4px 8px; }
 .data-table-scroll, .roster-scroll, .slot-picker-scroll { max-width: 100%; overscroll-behavior-x: contain; }
 .data-table-scroll table { min-width: 700px; }
+/* Keep status and urgency pills intact when table columns get narrow.
+   Their intrinsic width lets the table's existing scroll container handle overflow. */
+.data-table-scroll td > .rounded-full {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
 @media (max-width: 63.9375em) {
   .data-table-scroll::before { content: "Scroll horizontally to see all columns"; display: block; padding: 10px 16px; font-size: var(--text-xs); color: #65796e; background: #f5f8f5; }
 }
