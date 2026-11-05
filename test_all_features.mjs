@@ -100,7 +100,7 @@ async function runTests() {
 
   // Test Demo Users endpoint
   const demoUsersRes = await request('/api/auth/demo-users');
-  assert(demoUsersRes.status === 200 && Array.isArray(demoUsersRes.body) && demoUsersRes.body.length === 5, 'GET /api/auth/demo-users returns 5 demo personas');
+  assert(demoUsersRes.status === 200 && Array.isArray(demoUsersRes.body) && demoUsersRes.body.length === 7, 'GET /api/auth/demo-users returns 7 demo personas');
 
   // Test unauthenticated access to protected endpoint
   const unauthRes = await request('/api/people');
@@ -606,6 +606,131 @@ async function runTests() {
     body: JSON.stringify({ csv: importCsv })
   });
   assert(importRes.status === 201 && importRes.body.imported === 1 && importRes.body.errors.length === 0, 'Validated CSV bulk import creates employee records');
+
+  // 12. External Hiring & Interview Panel Roster
+  console.log('\n--- 12. External Hiring, Interview Panels & Roster ---');
+  const taLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'ta@caliberate.io', password: 'caliberate123' }) });
+  assert(taLogin.status === 200 && taLogin.body.user.role === 'TA', 'Talent Acquisition persona can sign in');
+  const panelLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'priya.nair@caliberate.io', password: 'caliberate123' }) });
+  assert(panelLogin.status === 200 && panelLogin.body.user.role === 'Panel', 'Panel persona can sign in');
+
+  const taPanels = await request('/api/panels', { headers: { Authorization: `Bearer ${taLogin.body.token}` } });
+  assert(taPanels.status === 200 && taPanels.body.length >= 3, 'TA can view the panel roster');
+  const panelSelf = await request('/api/panels/me', { headers: { Authorization: `Bearer ${panelLogin.body.token}` } });
+  assert(panelSelf.status === 200 && panelSelf.body.skills.includes('Java'), 'Panel member can view their own interview profile');
+  const panelOwnRoster = await request('/api/interview-roster', { headers: { Authorization: `Bearer ${panelLogin.body.token}` } });
+  assert(panelOwnRoster.status === 200 && panelOwnRoster.body.every(r => r.panelName === panelSelf.body.name), 'Panel member sees only their own interviews');
+
+  const futureRaw = new Date(Date.now() + 3 * 86400000);
+  while (futureRaw.getDay() === 0 || futureRaw.getDay() === 6) futureRaw.setDate(futureRaw.getDate() + 1);
+  const futureDate = futureRaw.toISOString().slice(0, 10);
+
+  const panelProfileUpdate = await request(`/api/panels/${panelSelf.body.id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${panelLogin.body.token}` },
+    body: JSON.stringify({ skills: ['Java', 'Spring Boot', 'React', 'TypeScript', 'Kubernetes'], timeSlots: [{ date: futureDate, time: '09:00' }, { date: futureDate, time: '11:00' }] })
+  });
+  assert(panelProfileUpdate.status === 200 && panelProfileUpdate.body.skills.includes('React') && panelProfileUpdate.body.timeSlots[0].time === '09:00', 'Panel member can update their interview skills and time slots');
+
+  const managerExternal = await request('/api/external-requests', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokens.Manager}` },
+    body: JSON.stringify({ jobTitle: 'React Platform Engineer', project: 'Phoenix', customer: 'Acme Corp', practice: 'Digital', skills: ['React', 'TypeScript'], experienceYears: 4, location: 'London', budgetRate: 100, reason: 'No internal frontend engineer available for the Q1 ramp-up.' })
+  });
+  assert(managerExternal.status === 201 && managerExternal.body.status === 'Pending', 'Manager can raise an external hire request');
+  const externalId = managerExternal.body.id;
+
+  const approveExternal = await request(`/api/external-requests/${externalId}/review`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tokens.Operations}` },
+    body: JSON.stringify({ status: 'Approved' })
+  });
+  assert(approveExternal.status === 200 && approveExternal.body.request.status === 'Approved', 'Operations can approve an external hire request');
+
+  const updateCandidate = await request(`/api/external-requests/${externalId}/candidate`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${tokens.Manager}` },
+    body: JSON.stringify({ candidateName: 'Nadia Khan', candidateEmail: 'nadia.khan@candidate.io', candidateSkills: ['React', 'TypeScript', 'Figma'], candidateStatus: 'Interviewing' })
+  });
+  assert(updateCandidate.status === 200 && updateCandidate.body.candidateName === 'Nadia Khan', 'Manager can update candidate details after approval');
+
+  // Clear any interviews already parked on this panel/date from a previous run
+  const existingRoster = await request('/api/interview-roster', { headers: { Authorization: `Bearer ${taLogin.body.token}` } });
+  for (const item of (existingRoster.body || []).filter(i => i.panelId === panelSelf.body.id && i.scheduledAt.slice(0, 10) === futureDate && i.status !== 'Cancelled')) {
+    await request(`/api/interview-roster/${item.id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${taLogin.body.token}` },
+      body: JSON.stringify({ status: 'Cancelled' })
+    });
+  }
+
+  const scheduleRes = await request('/api/interview-roster', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ requestId: externalId, panelId: panelSelf.body.id, roundNumber: 1, level: 'L2', interviewType: 'Technical', scheduledAt: `${futureDate} 09:00`, durationMinutes: 60, notes: 'Round 1 React/TypeScript technical.' })
+  });
+  assert(scheduleRes.status === 201 && scheduleRes.body.matchedSkills.includes('React'), 'TA can schedule an interview when panel skills match the JD');
+  const scheduledId = scheduleRes.body.id;
+
+  const scheduleRound2 = await request('/api/interview-roster', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ requestId: externalId, panelId: panelSelf.body.id, roundNumber: 2, level: 'L3', interviewType: 'Technical', scheduledAt: `${futureDate} 11:00`, durationMinutes: 60, notes: 'Round 2.' })
+  });
+  assert(scheduleRound2.status === 201, 'TA can schedule a second round within the same panel availability window');
+  const round2Id = scheduleRound2.body.id;
+
+  const outsideSlotRes = await request('/api/interview-roster', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ requestId: externalId, panelId: panelSelf.body.id, roundNumber: 1, scheduledAt: `${futureDate} 10:00`, durationMinutes: 60 })
+  });
+  assert(outsideSlotRes.status === 400 && /availability slots/.test(outsideSlotRes.body.error), 'Interview scheduling is rejected outside the panel availability slots');
+
+  const mismatchRes = await request('/api/interview-roster', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ requestId: externalId, panelId: 3, roundNumber: 1, scheduledAt: `${futureDate} 09:00`, durationMinutes: 60 })
+  });
+  assert(mismatchRes.status === 400 && /skills that match/.test(mismatchRes.body.error), 'Interview scheduling is blocked when panel skills do not match the JD');
+
+  const conflictRes = await request('/api/interview-roster', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ requestId: externalId, panelId: panelSelf.body.id, roundNumber: 3, scheduledAt: `${futureDate} 09:00`, durationMinutes: 60 })
+  });
+  assert(conflictRes.status === 409, 'Panel time conflicts are rejected to protect interviewer availability');
+
+  const panelCancel = await request(`/api/interview-roster/${round2Id}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${panelLogin.body.token}` },
+    body: JSON.stringify({ status: 'Cancelled' })
+  });
+  assert(panelCancel.status === 200 && panelCancel.body.status === 'Cancelled', 'Panel member can cancel their own scheduled interview');
+
+  const taNotifs = await request('/api/notifications', { headers: { Authorization: `Bearer ${taLogin.body.token}` } });
+  const opsNotifs = await request('/api/notifications', { headers: { Authorization: `Bearer ${tokens.Operations}` } });
+  const adminNotifs = await request('/api/notifications', { headers: { Authorization: `Bearer ${tokens.Admin}` } });
+  const cancelNotified = (list) => (list.body || []).some(n => n.title === 'Interview Cancelled by Panel');
+  assert(taNotifs.status === 200 && cancelNotified(taNotifs), 'Cancellation notifies the TA team');
+  assert(opsNotifs.status === 200 && cancelNotified(opsNotifs), 'Cancellation notifies Operations');
+  assert(adminNotifs.status === 200 && cancelNotified(adminNotifs), 'Cancellation notifies Admin');
+
+  const completeRes = await request(`/api/interview-roster/${scheduledId}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${taLogin.body.token}` },
+    body: JSON.stringify({ status: 'Completed' })
+  });
+  assert(completeRes.status === 200 && completeRes.body.status === 'Completed', 'TA can mark an interview as completed');
+
+  const resourceExternal = await request('/api/external-requests', { headers: { Authorization: `Bearer ${tokens.Resource}` } });
+  assert(resourceExternal.status === 403, 'Resource cannot access external hire requests');
+  const managerPanelCreate = await request('/api/panels', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tokens.Manager}` },
+    body: JSON.stringify({ name: 'Blocked Panel', email: 'blocked@caliberate.io', password: 'Str0ng!Passw0rd', skills: ['Java'] })
+  });
+  assert(managerPanelCreate.status === 403, 'Only Admin can create panel members');
 
   // Summary
   console.log('\n====================================================');

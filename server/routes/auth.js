@@ -165,7 +165,7 @@ router.get('/demo-users', async (req, res) => {
     return res.status(404).json({ error: 'Demo mode is disabled.' });
   }
   const db = await getDb();
-  const users = db.exec("SELECT id, name, email, role, role_title, department, avatar, badge_color, description, default_page, person_id FROM users WHERE active = 1 ORDER BY CASE role WHEN 'Admin' THEN 1 WHEN 'Operations' THEN 2 WHEN 'Manager' THEN 3 WHEN 'Resource' THEN 4 WHEN 'Sales' THEN 5 END");
+  const users = db.exec("SELECT id, name, email, role, role_title, department, avatar, badge_color, description, default_page, person_id FROM users WHERE active = 1 ORDER BY CASE role WHEN 'Admin' THEN 1 WHEN 'Operations' THEN 2 WHEN 'Manager' THEN 3 WHEN 'Resource' THEN 4 WHEN 'Sales' THEN 5 WHEN 'Panel' THEN 6 WHEN 'TA' THEN 7 END");
   if (users.length === 0) return res.json([]);
   const columns = users[0].columns;
   res.json(users[0].values.map((row) => {

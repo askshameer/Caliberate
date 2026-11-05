@@ -4,7 +4,10 @@ Caliberate is an internal workforce intelligence platform for tracking deploymen
 
 ## Capabilities
 
-- **Five role-scoped experiences**: Admin, Operations/PMO, Manager, Resource, and Sales capacity.
+- **Role-based access**: Admin, Operations/PMO, Manager, Resource, Sales capacity, Panel (interviewer), and Talent Acquisition (TA).
+- **External hiring**: Managers raise external hire requests when no internal resource matches; Admin/Operations approve them, then candidate details are captured.
+- **Interview panels**: Panel members maintain the skills they can interview and one-hour availability slots for the current and next week. The roster is visible to Admin, Operations, Manager, and TA.
+- **Interview scheduling**: TA schedules interviews against approved external requests; the roster blocks the interviewer's time, enforces JD-skill to panel-skill matching and slot availability, rejects time conflicts, and surfaces a weekly calendar view. Panel members can cancel their own interviews, which notifies TA, Operations, and Admin.
 - **Deployment lifecycle**: Deployed, Allocated, Bench, and On Leave with partial allocations, start/end dates, extension likelihood, and roll-off forecasting.
 - **Bench aging policies**: global Amber/Red/Critical thresholds plus per-practice or per-skill overrides. Bench days are calculated from the real current date and `bench_start`.
 - **Manager workflows**: direct-report and full-org views, team utilization, roll-off radar, certification expiry alerts, and staffing requests.
@@ -25,6 +28,8 @@ Demo mode is enabled by default outside production and seeds five personas. All 
 | Manager | `rachel.shah@caliberate.io` |
 | Resource | `aarav.kumar@caliberate.io` |
 | Sales | `sales@caliberate.io` |
+| Panel | `priya.nair@caliberate.io` |
+| TA | `ta@caliberate.io` |
 
 The login screen also supports one-click persona sign-in while demo mode is enabled. Demo data is shifted relative to the current date on every seed so the dashboards stay meaningful.
 
@@ -58,7 +63,7 @@ The Express server serves the built SPA from `client/dist` and the API from the 
 npm test
 ```
 
-The suite covers authentication, RBAC, financial masking, sales anonymization, people CRUD, marketplace applications, staffing approvals, policy governance, audit logging, forced password rotation, user provisioning, CSV import, and health/readiness. It expects the dev servers to be running on ports 3001 and 5173.
+The suite covers authentication, RBAC, financial masking, sales anonymization, people CRUD, marketplace applications, staffing approvals, policy governance, audit logging, forced password rotation, user provisioning, CSV import, external hiring, interview panels, roster scheduling with skill matching and time-conflict protection, plus health/readiness. It expects the dev servers to be running on ports 3001 and 5173.
 
 ### Reset demo data
 
@@ -162,7 +167,7 @@ Caliberate/
 │   ├── routes/                 Auth, users, people, jobs, applications, requests, settings
 │   ├── services/audit.js       Server-side audit trail
 │   └── validation/             Zod request schemas
-├── test_all_features.mjs       72-assertion end-to-end feature suite
+├── test_all_features.mjs       93-assertion end-to-end feature suite
 ├── Dockerfile
 ├── docker-compose.yml
 └── .env.example
@@ -181,6 +186,9 @@ All endpoints are under `/api`. Authentication is required except for `/auth/log
 | Applications | `GET/POST /applications`, `PUT /applications/:id` |
 | Staffing requests | `GET/POST /requests`, `PUT /requests/:id` |
 | Settings | `GET/PUT /settings`, `GET/POST /settings/audit-log`, `POST /settings/reset` (demo mode) |
+| External Hires | `GET/POST /external-requests`, `PUT /external-requests/:id/review`, `PUT /external-requests/:id/candidate` |
+| Panels | `GET/POST /panels`, `GET /panels/me`, `GET /panels/available`, `PUT/DELETE /panels/:id` |
+| Interview Roster | `GET/POST /interview-roster`, `PUT /interview-roster/:id` |
 | Ops | `GET /health`, `GET /ready` |
 
 ## Notes and constraints

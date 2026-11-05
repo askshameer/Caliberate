@@ -17,7 +17,9 @@ export const ROLE_PERMISSIONS = {
     'profile:read', 'profile:write', 'jobs:read', 'applications:read:self',
     'applications:write:self'
   ],
-  Sales: ['capacity:read', 'jobs:read']
+  Sales: ['capacity:read', 'jobs:read'],
+  Panel: ['profile:read', 'profile:write', 'roster:read:self', 'panels:read:self'],
+  TA: ['requests:read', 'panels:read', 'roster:read', 'roster:write']
 };
 
 export function hasPermission(role, permission) {

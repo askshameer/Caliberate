@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('Admin','Operations','Manager','Resource','Sales')),
+  role TEXT NOT NULL CHECK(role IN ('Admin','Operations','Manager','Resource','Sales','Panel','TA')),
   role_title TEXT,
   department TEXT,
   avatar TEXT,
@@ -147,6 +147,79 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   id TEXT PRIMARY KEY,
   applied_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS external_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  manager TEXT NOT NULL,
+  job_title TEXT NOT NULL,
+  project TEXT,
+  customer TEXT,
+  practice TEXT,
+  skills TEXT DEFAULT '[]',
+  experience_years INTEGER DEFAULT 0,
+  location TEXT,
+  budget_rate REAL DEFAULT 0,
+  reason TEXT DEFAULT '',
+  request_date TEXT DEFAULT (date('now')),
+  status TEXT DEFAULT 'Pending' CHECK(status IN ('Pending','Approved','Rejected','Cancelled')),
+  rejection_reason TEXT,
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  candidate_name TEXT,
+  candidate_email TEXT,
+  candidate_skills TEXT DEFAULT '[]',
+  candidate_status TEXT DEFAULT 'Sourcing',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS panels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  name TEXT NOT NULL,
+  email TEXT,
+  role_title TEXT,
+  practice TEXT,
+  skills TEXT DEFAULT '[]',
+  domains TEXT DEFAULT '[]',
+  time_slots TEXT DEFAULT '[]',
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS interview_roster (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_id INTEGER,
+  job_title TEXT,
+  candidate_name TEXT,
+  panel_id INTEGER,
+  panel_name TEXT,
+  round_number INTEGER DEFAULT 1,
+  level TEXT,
+  interview_type TEXT,
+  scheduled_at TEXT,
+  duration_minutes INTEGER DEFAULT 60,
+  status TEXT DEFAULT 'Scheduled' CHECK(status IN ('Scheduled','Completed','Cancelled','Rescheduled')),
+  notes TEXT DEFAULT '',
+  created_by TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (request_id) REFERENCES external_requests(id),
+  FOREIGN KEY (panel_id) REFERENCES panels(id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  recipient_role TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  type TEXT DEFAULT 'info',
+  read INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 `;
 
 // Seed data
@@ -155,7 +228,25 @@ const DEMO_USERS = [
   { id: 'usr-ops', name: 'Marcus Vance', email: 'ops@caliberate.io', role: 'Operations', roleTitle: 'Head of Resource Management & PMO', department: 'Global Staffing & Operations', avatar: 'MV', badgeColor: 'bg-teal-100 text-teal-800 border-teal-200', description: 'Manage global workforce allocations, bench watch & cost, approvals queue, and marketplace.', defaultPage: 'Dashboard', personId: null },
   { id: 'usr-manager', name: 'Rachel Shah', email: 'rachel.shah@caliberate.io', role: 'Manager', roleTitle: 'Delivery & Practice Director', department: 'Digital Experience Practice', avatar: 'RS', badgeColor: 'bg-purple-100 text-purple-800 border-purple-200', description: 'Practice oversight: Team utilization vs 85% target, 30-day roll-off radar, and staffing requests.', defaultPage: 'Dashboard', personId: 3 },
   { id: 'usr-resource', name: 'Aarav Kumar', email: 'aarav.kumar@caliberate.io', role: 'Resource', roleTitle: 'Senior Backend & Cloud Engineer', department: 'Digital Practice (Currently on Bench)', avatar: 'AK', badgeColor: 'bg-amber-100 text-amber-800 border-amber-200', description: 'Employee workspace: Profile completeness, resume AI skill parser, marketplace, and applications.', defaultPage: 'My Profile', personId: 1 },
-  { id: 'usr-sales', name: 'Elena Rostova', email: 'sales@caliberate.io', role: 'Sales', roleTitle: 'Client Solutions & Proposals Director', department: 'Business Development & Client Staffing', avatar: 'ER', badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200', description: 'Confidential "Who\'s Free" capacity matrix and skills supply heatmap for proposal staffing.', defaultPage: "Who's Free", personId: null }
+  { id: 'usr-sales', name: 'Elena Rostova', email: 'sales@caliberate.io', role: 'Sales', roleTitle: 'Client Solutions & Proposals Director', department: 'Business Development & Client Staffing', avatar: 'ER', badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200', description: 'Confidential "Who\'s Free" capacity matrix and skills supply heatmap for proposal staffing.', defaultPage: "Who's Free", personId: null },
+  { id: 'usr-panel', name: 'Priya Nair', email: 'priya.nair@caliberate.io', role: 'Panel', roleTitle: 'Senior Engineering Interviewer', department: 'Digital Practice', avatar: 'PN', badgeColor: 'bg-sky-100 text-sky-800 border-sky-200', description: 'Interview panel member: technical interviews for Java, Spring Boot, React, and cloud roles.', defaultPage: 'Interview Profile', personId: null },
+  { id: 'usr-ta', name: 'Divya Menon', email: 'ta@caliberate.io', role: 'TA', roleTitle: 'Talent Acquisition Lead', department: 'People & Talent Acquisition', avatar: 'DM', badgeColor: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200', description: 'Schedule interview panels, block interviewer time, and manage external hire pipelines.', defaultPage: 'Interview Roster', personId: null }
+];
+
+const INITIAL_PANELS = [
+  { id: 1, userId: 'usr-panel', name: 'Priya Nair', email: 'priya.nair@caliberate.io', roleTitle: 'Senior Engineering Interviewer', practice: 'Digital', skills: ['Java', 'Spring Boot', 'Kubernetes', 'React', 'TypeScript', 'AWS'], domains: ['Digital', 'FinTech', 'Retail'], timeSlots: [] },
+  { id: 2, userId: null, name: 'Vikram Sethi', email: 'vikram.sethi@caliberate.io', roleTitle: 'Cloud Architecture Interviewer', practice: 'Cloud', skills: ['AWS', 'Terraform', 'Kubernetes', 'Go', 'Docker'], domains: ['Cloud', 'HealthTech', 'Manufacturing'], timeSlots: [] },
+  { id: 3, userId: null, name: 'Meera Joshi', email: 'meera.joshi@caliberate.io', roleTitle: 'Data Engineering Interviewer', practice: 'Data', skills: ['Python', 'Spark', 'SQL', 'dbt', 'PyTorch'], domains: ['Data', 'Analytics', 'Telecom'], timeSlots: [] }
+];
+
+const INITIAL_EXTERNAL_REQUESTS = [
+  { id: 301, manager: 'Rachel Shah', jobTitle: 'Senior Java & Cloud Engineer', project: 'Atlas', customer: 'Globex', practice: 'Digital', skills: ['Java', 'Spring Boot', 'Kubernetes', 'Kafka'], experienceYears: 5, location: 'Bengaluru · Hybrid', budgetRate: 120, reason: 'Internal bench candidates do not cover the Kafka streaming requirement; no internal match found.', requestDate: '2026-09-14', status: 'Approved', rejectionReason: null, reviewedBy: 'Marcus Vance', reviewedAt: '2026-09-15 10:20', candidateName: 'Arjun Mehta', candidateEmail: 'arjun.mehta@candidate.io', candidateSkills: ['Java', 'Spring Boot', 'Kafka', 'Kubernetes'], candidateStatus: 'Interviewing' },
+  { id: 302, manager: 'Sam Rivera', jobTitle: 'Cloud Infrastructure Architect', project: 'Horizon Secure Cloud', customer: 'Vertex Health', practice: 'Cloud', skills: ['AWS', 'Terraform', 'Kubernetes'], experienceYears: 6, location: 'New York · Hybrid', budgetRate: 150, reason: 'No internal architect free before the Q4 delivery start; urgent external search.', requestDate: '2026-09-16', status: 'Pending', rejectionReason: null, reviewedBy: null, reviewedAt: null, candidateName: null, candidateEmail: null, candidateSkills: [], candidateStatus: 'Sourcing' }
+];
+
+const INITIAL_ROSTER = [
+  { id: 401, requestId: 301, jobTitle: 'Senior Java & Cloud Engineer', candidateName: 'Arjun Mehta', panelId: 1, panelName: 'Priya Nair', roundNumber: 1, level: 'L2', interviewType: 'Technical', scheduledAt: '2026-09-18 10:00', durationMinutes: 60, status: 'Scheduled', notes: 'Round 1 technical: core Java, Spring Boot, and Kafka design.', createdBy: 'Divya Menon' },
+  { id: 402, requestId: 301, jobTitle: 'Senior Java & Cloud Engineer', candidateName: 'Arjun Mehta', panelId: 2, panelName: 'Vikram Sethi', roundNumber: 2, level: 'L3', interviewType: 'Technical', scheduledAt: '2026-09-22 11:00', durationMinutes: 45, status: 'Scheduled', notes: 'Round 2 cloud & Kubernetes hands-on.', createdBy: 'Divya Menon' }
 ];
 
 const INITIAL_PEOPLE = [
@@ -247,6 +338,41 @@ function shiftNotes(notes) {
   return (notes || []).map((note) => ({ ...note, date: shiftDate(note.date) }));
 }
 
+// Shift a demo date/time, then roll it forward to the next weekday if it lands
+// on a Saturday or Sunday, so demo interview schedules stay Mon–Fri.
+function shiftDateToWeekday(value) {
+  const shifted = shiftDate(value);
+  const [datePart, ...timeParts] = String(shifted).split(' ');
+  const date = new Date(`${datePart}T00:00:00`);
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1);
+  const shiftedDate = toLocalDate(date);
+  return timeParts.length ? `${shiftedDate} ${timeParts.join(' ')}` : shiftedDate;
+}
+
+function toLocalDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Demo availability: one-hour slots (08:00–18:00 start times) on working days
+// (Monday–Friday) across the next two weeks. Slots are start times only
+// ({ date, time }) and always land in the current or next calendar week so they
+// follow the panel-slot policy.
+function generatePanelSlots() {
+  const slots = [];
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const times = ['08:00', '10:00', '13:00', '15:00', '17:00'];
+  for (let offset = 1; offset <= 14; offset += 1) {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    const weekday = day.getDay();
+    if (weekday === 0 || weekday === 6) continue;
+    for (const time of times) {
+      slots.push({ date: toLocalDate(day), time });
+    }
+  }
+  return slots;
+}
+
 function tableColumns(db, table) {
   const result = db.exec(`PRAGMA table_info(${table})`);
   if (result.length === 0) return [];
@@ -257,6 +383,46 @@ function ensureColumn(db, table, column, definition) {
   if (!tableColumns(db, table).includes(column)) {
     db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+}
+
+// SQLite cannot ALTER a CHECK constraint, so the users table is rebuilt once
+// when new roles are introduced. New tables that reference users are empty at
+// this point, so dropping and renaming is safe.
+function migrateUsersRoles(db) {
+  const result = db.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
+  const currentSql = result[0]?.values[0]?.[0] || '';
+  if (currentSql.includes("'Panel'") && currentSql.includes("'TA'")) return;
+
+  db.run(`
+    CREATE TABLE users_new (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('Admin','Operations','Manager','Resource','Sales','Panel','TA')),
+      role_title TEXT,
+      department TEXT,
+      avatar TEXT,
+      badge_color TEXT,
+      description TEXT,
+      default_page TEXT DEFAULT 'Dashboard',
+      person_id INTEGER,
+      must_change_password INTEGER DEFAULT 0,
+      failed_attempts INTEGER DEFAULT 0,
+      locked_until TEXT,
+      token_version INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      last_login_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.run(`
+    INSERT INTO users_new (id, name, email, password, role, role_title, department, avatar, badge_color, description, default_page, person_id, must_change_password, failed_attempts, locked_until, token_version, active, last_login_at, created_at, updated_at)
+    SELECT id, name, email, password, role, role_title, department, avatar, badge_color, description, default_page, person_id, must_change_password, failed_attempts, locked_until, token_version, active, last_login_at, created_at, updated_at FROM users
+  `);
+  db.run('DROP TABLE users');
+  db.run('ALTER TABLE users_new RENAME TO users');
 }
 
 function migrate(db) {
@@ -286,11 +452,15 @@ function migrate(db) {
   ensureColumn(db, 'staffing_requests', 'updated_at', 'TEXT');
 
   ensureColumn(db, 'settings', 'updated_at', 'TEXT');
+  ensureColumn(db, 'panels', 'domains', "TEXT DEFAULT '[]'");
+  ensureColumn(db, 'panels', 'recurring_slots', "TEXT DEFAULT '[]'");
 
   ensureColumn(db, 'audit_log', 'before', 'TEXT');
   ensureColumn(db, 'audit_log', 'after', 'TEXT');
   ensureColumn(db, 'audit_log', 'ip', 'TEXT');
   ensureColumn(db, 'audit_log', 'user_agent', 'TEXT');
+
+  migrateUsersRoles(db);
 
   db.run('CREATE INDEX IF NOT EXISTS idx_people_manager ON people(manager)');
   db.run('CREATE INDEX IF NOT EXISTS idx_people_status ON people(status)');
@@ -300,7 +470,57 @@ function migrate(db) {
   db.run('CREATE INDEX IF NOT EXISTS idx_requests_manager ON staffing_requests(manager)');
   db.run('CREATE INDEX IF NOT EXISTS idx_requests_status ON staffing_requests(status)');
   db.run('CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_log(time)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_panels_active ON panels(active)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_roster_panel ON interview_roster(panel_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_roster_status ON interview_roster(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_extreq_manager ON external_requests(manager)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_extreq_status ON external_requests(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(recipient_role, read)');
   db.run("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('2026-10-31-enterprise-baseline')");
+  db.run("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('2026-11-03-hiring-panels')");
+  db.run("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('2026-11-03-panel-slots-notifications')");
+}
+
+function seedHiringDemo(db) {
+  const applied = one(db, "SELECT id FROM schema_migrations WHERE id = '2026-11-03-hiring-panels-seed'");
+  if (applied) return;
+
+  const hashedPassword = bcrypt.hashSync('caliberate123', config.bcryptRounds);
+
+  const insertUser = db.prepare(
+    `INSERT OR IGNORE INTO users (id, name, email, password, role, role_title, department, avatar, badge_color, description, default_page, person_id, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+  );
+  for (const u of DEMO_USERS.slice(-2)) {
+    insertUser.run([u.id, u.name, u.email, hashedPassword, u.role, u.roleTitle, u.department, u.avatar, u.badgeColor, u.description, u.defaultPage, u.personId]);
+  }
+  insertUser.free();
+
+  const insertPanel = db.prepare(
+    `INSERT OR IGNORE INTO panels (id, user_id, name, email, role_title, practice, skills, domains, time_slots, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+  );
+  for (const p of INITIAL_PANELS) {
+    insertPanel.run([p.id, p.userId, p.name, p.email, p.roleTitle, p.practice, JSON.stringify(p.skills), JSON.stringify(p.domains || []), JSON.stringify(generatePanelSlots())]);
+  }
+  insertPanel.free();
+
+  const insertExternal = db.prepare(
+    `INSERT OR IGNORE INTO external_requests (id, manager, job_title, project, customer, practice, skills, experience_years, location, budget_rate, reason, request_date, status, rejection_reason, reviewed_by, reviewed_at, candidate_name, candidate_email, candidate_skills, candidate_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const e of INITIAL_EXTERNAL_REQUESTS) {
+    insertExternal.run([e.id, e.manager, e.jobTitle, e.project, e.customer, e.practice, JSON.stringify(e.skills), e.experienceYears, e.location, e.budgetRate, e.reason, shiftDate(e.requestDate), e.status, e.rejectionReason, e.reviewedBy, e.reviewedAt, e.candidateName, e.candidateEmail, JSON.stringify(e.candidateSkills), e.candidateStatus]);
+  }
+  insertExternal.free();
+
+  const insertRoster = db.prepare(
+    `INSERT OR IGNORE INTO interview_roster (id, request_id, job_title, candidate_name, panel_id, panel_name, round_number, level, interview_type, scheduled_at, duration_minutes, status, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const r of INITIAL_ROSTER) {
+    insertRoster.run([r.id, r.requestId, r.jobTitle, r.candidateName, r.panelId, r.panelName, r.roundNumber, r.level, r.interviewType, shiftDateToWeekday(r.scheduledAt), r.durationMinutes, r.status, r.notes, r.createdBy]);
+  }
+  insertRoster.free();
+
+  db.run("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('2026-11-03-hiring-panels-seed')");
+  saveDb();
 }
 
 export async function getDb() {
@@ -349,11 +569,15 @@ export async function getDb() {
   _db.run(SCHEMA);
   migrate(_db);
 
-  // Check if already seeded
+  // Check if already seeded. Fresh databases get the full seed (which includes
+  // hiring demo data); existing demo databases get the hiring dataset backfilled.
   const userCount = _db.exec("SELECT COUNT(*) FROM users");
   if (userCount[0].values[0][0] === 0) {
     await seedDatabase(_db);
   } else {
+    if (config.seedDemoData) {
+      seedHiringDemo(_db);
+    }
     saveDb();
   }
 
@@ -408,7 +632,7 @@ export function transaction(db, fn) {
 // Wipes all business data and re-inserts the demo dataset (users are preserved)
 export async function reseedDatabase() {
   const db = await getDb();
-  for (const table of ['people', 'jobs', 'applications', 'staffing_requests', 'audit_log', 'settings']) {
+  for (const table of ['people', 'jobs', 'applications', 'staffing_requests', 'interview_roster', 'external_requests', 'panels', 'notifications', 'audit_log', 'settings']) {
     db.run(`DELETE FROM ${table}`);
   }
   await seedDatabase(db);
@@ -481,6 +705,33 @@ async function seedDatabase(db) {
       insertReq.run([r.id, r.manager, r.personId, r.personName, r.jobId, r.project, r.customer, r.action, shiftDate(r.start), shiftDate(r.end), r.pct, r.rate, r.status, shiftDate(r.requestDate), r.reason]);
     }
     insertReq.free();
+
+    // Seed external hire requests
+    const insertExternal = db.prepare(
+      `INSERT OR IGNORE INTO external_requests (id, manager, job_title, project, customer, practice, skills, experience_years, location, budget_rate, reason, request_date, status, rejection_reason, reviewed_by, reviewed_at, candidate_name, candidate_email, candidate_skills, candidate_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const e of INITIAL_EXTERNAL_REQUESTS) {
+      insertExternal.run([e.id, e.manager, e.jobTitle, e.project, e.customer, e.practice, JSON.stringify(e.skills), e.experienceYears, e.location, e.budgetRate, e.reason, shiftDate(e.requestDate), e.status, e.rejectionReason, e.reviewedBy, e.reviewedAt, e.candidateName, e.candidateEmail, JSON.stringify(e.candidateSkills), e.candidateStatus]);
+    }
+    insertExternal.free();
+
+    // Seed interview panels
+    const insertPanel = db.prepare(
+      `INSERT OR IGNORE INTO panels (id, user_id, name, email, role_title, practice, skills, domains, time_slots, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+    );
+    for (const p of INITIAL_PANELS) {
+      insertPanel.run([p.id, p.userId, p.name, p.email, p.roleTitle, p.practice, JSON.stringify(p.skills), JSON.stringify(p.domains || []), JSON.stringify(generatePanelSlots())]);
+    }
+    insertPanel.free();
+
+    // Seed interview roster
+    const insertRoster = db.prepare(
+      `INSERT OR IGNORE INTO interview_roster (id, request_id, job_title, candidate_name, panel_id, panel_name, round_number, level, interview_type, scheduled_at, duration_minutes, status, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const r of INITIAL_ROSTER) {
+      insertRoster.run([r.id, r.requestId, r.jobTitle, r.candidateName, r.panelId, r.panelName, r.roundNumber, r.level, r.interviewType, shiftDateToWeekday(r.scheduledAt), r.durationMinutes, r.status, r.notes, r.createdBy]);
+    }
+    insertRoster.free();
 
     // Seed settings
     db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('thresholds', ?)`, [JSON.stringify(INITIAL_SETTINGS)]);

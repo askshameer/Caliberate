@@ -19,6 +19,10 @@ import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import settingsRoutes from './routes/settings.js';
 import usersRoutes from './routes/users.js';
+import externalRequestRoutes from './routes/externalRequests.js';
+import panelRoutes from './routes/panels.js';
+import rosterRoutes from './routes/roster.js';
+import notificationRoutes from './routes/notifications.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -176,6 +180,10 @@ app.use('/api/applications', applicationsRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/external-requests', externalRequestRoutes);
+app.use('/api/panels', panelRoutes);
+app.use('/api/interview-roster', rosterRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve the production client build
 const clientDistPath = path.join(__dirname, '..', 'client', 'dist');

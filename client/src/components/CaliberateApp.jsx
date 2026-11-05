@@ -5,7 +5,7 @@ import {
   UserCircle, ChevronRight, Shield, Calendar, CheckCircle2, AlertTriangle,
   Upload, Building, BookOpen,
   RefreshCw, Award, CheckSquare, BarChart2, Flame, Inbox,
-  LogOut, Menu, UserCog, KeyRound, Pencil
+  LogOut, Menu, UserCog, KeyRound, Pencil, UserPlus, CalendarDays
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell
@@ -24,6 +24,11 @@ export default function CaliberateApp() {
   const [applications, setApplications] = useState([]);
   const [requests, setRequests] = useState([]);
   const [users, setUsers] = useState([]);
+  const [externalRequests, setExternalRequests] = useState([]);
+  const [panels, setPanels] = useState([]);
+  const [roster, setRoster] = useState([]);
+  const [myPanel, setMyPanel] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [settings, setSettings] = useState({ global: { amber: 10, red: 15, critical: 30 }, overrides: [], notifications: {} });
 
   const [page, setPage] = useState(() => currentUser?.defaultPage || 'Dashboard');
@@ -40,6 +45,7 @@ export default function CaliberateApp() {
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [rosterWeekOffset, setRosterWeekOffset] = useState(0);
   const [managerOrgView, setManagerOrgView] = useState('direct');
   const [dataLoaded, setDataLoaded] = useState(false);
   const [auditLog, setAuditLog] = useState([]);
@@ -55,18 +61,28 @@ export default function CaliberateApp() {
   // Load data from API
   const loadData = useCallback(async () => {
     try {
-      const [peopleData, jobsData, appsData, reqsData, settingsData] = await Promise.all([
+      const [peopleData, jobsData, appsData, reqsData, settingsData, extData, panelsData, rosterData, myPanelData, notifData] = await Promise.all([
         apiGet(`/people?managerView=${managerOrgView}`),
         apiGet('/jobs'),
         apiGet('/applications').catch(() => []),
         apiGet('/requests').catch(() => []),
-        apiGet('/settings')
+        apiGet('/settings'),
+        apiGet('/external-requests').catch(() => []),
+        apiGet('/panels').catch(() => []),
+        apiGet('/interview-roster').catch(() => []),
+        apiGet('/panels/me').catch(() => null),
+        apiGet('/notifications').catch(() => [])
       ]);
       setPeople(peopleData);
       setJobs(jobsData);
       setApplications(appsData);
       setRequests(reqsData);
       setSettings(settingsData);
+      setExternalRequests(extData);
+      setPanels(panelsData);
+      setRoster(rosterData);
+      setMyPanel(myPanelData);
+      setNotifications(notifData);
       setDataLoaded(true);
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -272,6 +288,72 @@ export default function CaliberateApp() {
       setActiveModal(null);
     }, 'User account created.'),
 
+    createExternalRequest: (v) => run(async () => {
+      await apiPost('/external-requests', { ...v, manager: currentUser?.name });
+      await loadData();
+      setActiveModal(null);
+    }, 'External hire request raised.'),
+
+    reviewExternal: (id, status, rejectionReason = '') => run(async () => {
+      await apiPut(`/external-requests/${id}/review`, { status, rejectionReason });
+      await loadData();
+    }, status === 'Approved' ? 'External hire request approved.' : 'External hire request rejected.'),
+
+    updateCandidate: (id, v) => run(async () => {
+      await apiPut(`/external-requests/${id}/candidate`, v);
+      await loadData();
+      setActiveModal(null);
+    }, 'Candidate details updated.'),
+
+    savePanel: (panel) => run(async () => {
+      const result = await apiPost('/panels', panel);
+      setPanels(prev => [...prev, result.panel]);
+      setActiveModal(null);
+      if (result.tempPassword) showToast(`Panel created. Temporary password: ${result.tempPassword}`, 'success');
+      else showToast('Panel member added.');
+    }, null),
+
+    updatePanel: (id, v) => run(async () => {
+      const updated = await apiPut(`/panels/${id}`, v);
+      setPanels(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+      if (updated.id === myPanel?.id) setMyPanel(updated);
+      setActiveModal(null);
+    }, 'Panel profile saved.'),
+
+    updateMyPanel: (v) => run(async () => {
+      const updated = await apiPut(`/panels/${v.id}`, v);
+      setMyPanel(updated);
+      setPanels(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+      setActiveModal(null);
+    }, 'Interview profile saved.'),
+
+    deactivatePanel: (panel) => run(async () => {
+      await apiDelete(`/panels/${panel.id}`);
+      setPanels(prev => prev.filter(p => p.id !== panel.id));
+    }, 'Panel member deactivated.'),
+
+    scheduleInterview: (v) => run(async () => {
+      await apiPost('/interview-roster', v);
+      await loadData();
+      setActiveModal(null);
+    }, 'Interview scheduled and panel time blocked.'),
+
+    updateInterview: (id, v) => run(async () => {
+      await apiPut(`/interview-roster/${id}`, v);
+      await loadData();
+      setActiveModal(null);
+    }, 'Interview updated.'),
+
+    markNotificationRead: (id) => run(async () => {
+      await apiPost(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
+    }, null),
+
+    markAllNotificationsRead: () => run(async () => {
+      await apiPost('/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }, null),
+
     updateUser: (id, user) => run(async () => {
       const updated = await apiPut(`/users/${id}`, user);
       setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
@@ -451,6 +533,18 @@ export default function CaliberateApp() {
         { id: 'Openings', label: 'Open Positions', icon: Briefcase }
       ];
     }
+    if (role === 'Panel') {
+      return [
+        { id: 'Interview Profile', label: 'Interview Profile', icon: UserCircle },
+        { id: 'My Schedule', label: 'My Schedule', icon: Calendar }
+      ];
+    }
+    if (role === 'TA') {
+      return [
+        { id: 'Interview Roster', label: 'Interview Roster', icon: Calendar, badge: roster.filter(r => r.status === 'Scheduled').length },
+        { id: 'External Hires', label: 'External Hires', icon: UserPlus, badge: externalRequests.filter(r => r.status === 'Pending').length }
+      ];
+    }
     return [
       { id: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'Employees', label: 'Resource Directory', icon: Users },
@@ -459,12 +553,20 @@ export default function CaliberateApp() {
       { id: 'Roll-offs', label: 'Roll-off Pipeline', icon: Calendar, badge: metrics.rolloffs30d.length },
       { id: 'Openings', label: 'Talent Marketplace', icon: Briefcase },
       { id: 'Requests', label: 'Staffing Requests', icon: Inbox, badge: requests.filter(r => r.status?.includes('Pending')).length },
+      { id: 'External Hires', label: 'External Hires', icon: UserPlus, badge: externalRequests.filter(r => r.status === 'Pending').length },
+      { id: 'Panels', label: 'Interview Panels', icon: Users },
+      { id: 'Interview Roster', label: 'Interview Roster', icon: Calendar },
       { id: 'Supply Demand', label: 'Supply vs Demand', icon: Flame },
       { id: 'Reports', label: 'Analytics & Reports', icon: BarChart2 },
       ...(privileged ? [{ id: 'Settings', label: 'Settings & Policies', icon: Settings }] : []),
       ...(isAdmin ? [{ id: 'Users', label: 'Users & Access', icon: UserCog }] : [])
     ];
-  }, [role, metrics.redFlagsCount, metrics.rolloffs30d.length, requests, privileged, isAdmin]);
+  }, [role, metrics.redFlagsCount, metrics.rolloffs30d.length, requests, externalRequests, roster, privileged, isAdmin]);
+
+  // Panel & TA are confined to their own workspace: any page outside their
+  // navigation (e.g. Roll-offs, Bench Watch) is never rendered for them.
+  const restrictedRole = role === 'Panel' || role === 'TA';
+  const activePage = restrictedRole && !navigationItems.some(i => i.id === page) ? navigationItems[0]?.id : page;
 
   if (!dataLoaded) {
     return (
@@ -1412,6 +1514,419 @@ export default function CaliberateApp() {
   );
 
   // ============================================================
+  //  RENDER: External Hires
+  // ============================================================
+  const externalStatusStyle = (status) => ({
+    Approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Pending: 'bg-amber-50 text-amber-700 border-amber-200',
+    Rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+    Cancelled: 'bg-slate-100 text-slate-500 border-slate-200'
+  }[status] || 'bg-slate-100 text-slate-500 border-slate-200');
+
+  const renderExternalHires = () => {
+    const canRaise = role === 'Manager';
+    const canReview = role === 'Admin' || role === 'Operations';
+    const candidateEditable = role === 'Admin' || role === 'Operations' || role === 'TA';
+    const scheduler = ['TA', 'Admin', 'Operations', 'Manager'].includes(role);
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">External Hires</h1>
+            <p className="text-xs text-slate-500">Raise external hire requests when no internal resource matches the requirement. Requests are approved by Admin/Operations.</p>
+          </div>
+          {canRaise && (
+            <button onClick={() => setActiveModal({ type: 'external-request', data: null })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-teal-800">
+              <Plus className="h-4 w-4" /> Raise External Request
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          {externalRequests.length === 0 && <p className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-xs text-slate-400">No external hire requests.</p>}
+          {externalRequests.map(r => (
+            <div key={r.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">{r.jobTitle}</h3>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${externalStatusStyle(r.status)}`}>{r.status}</span>
+                    {r.candidateStatus && r.candidateName && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">{r.candidateStatus}</span>}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{r.customer} · {r.project} · {r.practice} · {r.location || 'Remote'}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(r.skills || []).map(s => <span key={s} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{s}</span>)}
+                  </div>
+                </div>
+                <div className="text-right text-xs text-slate-500 shrink-0">
+                  <p>Raised by {r.manager}</p>
+                  <p>{r.requestDate}</p>
+                  {r.budgetRate ? <p className="font-semibold text-slate-700">${r.budgetRate}/h</p> : null}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-slate-600">{r.reason}</p>
+              {r.rejectionReason && <p className="mt-2 text-[11px] text-rose-600">Rejected: {r.rejectionReason}</p>}
+              {r.candidateName && (
+                <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
+                  <p className="font-semibold text-slate-800">{r.candidateName} <span className="text-slate-400">· {r.candidateEmail}</span></p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(r.candidateSkills || []).map(s => <span key={s} className="rounded-md bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{s}</span>)}
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {canReview && r.status === 'Pending' && (
+                  <>
+                    <button onClick={() => handlers.reviewExternal(r.id, 'Approved')} className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button>
+                    <button onClick={() => { const reason = window.prompt('Enter rejection reason:'); if (reason !== null) handlers.reviewExternal(r.id, 'Rejected', reason.trim()); }} className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
+                  </>
+                )}
+                {(candidateEditable || (role === 'Manager' && r.manager === currentUser?.name)) && r.status === 'Approved' && (
+                  <button onClick={() => setActiveModal({ type: 'external-candidate', data: r })} className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">Update Candidate</button>
+                )}
+                {scheduler && r.status === 'Approved' && r.candidateName && (
+                  <button onClick={() => setActiveModal({ type: 'schedule-interview', data: r })} className="rounded-md bg-purple-50 px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100">Schedule Interview</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  //  RENDER: Interview Panels
+  // ============================================================
+  const renderPanels = () => {
+    const canManage = role === 'Admin';
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Interview Panels</h1>
+            <p className="text-xs text-slate-500">Available interviewers, their interview skills, and weekly availability slots.</p>
+          </div>
+          {canManage && (
+            <button onClick={() => setActiveModal({ type: 'panel-form', data: null })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-teal-800">
+              <Plus className="h-4 w-4" /> Add Panel Member
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {panels.length === 0 && <p className="col-span-full rounded-2xl border border-slate-200 bg-white p-10 text-center text-xs text-slate-400">No panels configured yet.</p>}
+          {panels.map(panel => (
+            <div key={panel.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sm font-bold text-sky-700">{panel.name.split(' ').map(s => s[0]).join('').slice(0, 2)}</div>
+                  <div><p className="font-bold text-slate-900">{panel.name}</p><p className="text-[11px] text-slate-400">Interview Panel Member</p></div>
+                </div>
+                {canManage && (
+                  <div className="flex gap-1">
+                    <button onClick={() => setActiveModal({ type: 'panel-form', data: panel })} className="rounded-md bg-teal-50 p-1 text-teal-700 hover:bg-teal-100" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => { if (window.confirm(`Deactivate panel member ${panel.name}?`)) handlers.deactivatePanel(panel); }} className="rounded-md bg-rose-50 p-1 text-rose-600 hover:bg-rose-100" title="Deactivate"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Interview Skills</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {(panel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-100">{s}</span>)}
+                  {(panel.skills || []).length === 0 && <span className="text-[11px] text-slate-400">No skills configured</span>}
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Domains</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {(panel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
+                  {(panel.domains || []).length === 0 && <span className="text-[11px] text-slate-400">No domains selected</span>}
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Slots (1h)</p>
+                <div className="mt-1 space-y-1">
+                  {(panel.timeSlots || []).slice(0, 8).map((slot, i) => (
+                    <p key={i} className="text-[11px] text-slate-600"><span className="font-semibold">{slot.date}</span> · {slot.time}</p>
+                  ))}
+                  {(panel.timeSlots || []).length > 8 && <span className="text-[10px] text-slate-400">+{(panel.timeSlots || []).length - 8} more</span>}
+                  {(panel.timeSlots || []).length === 0 && <span className="text-[11px] text-slate-400">No slots configured</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  //  RENDER: Interview Roster
+  // ============================================================
+  const rosterStatusStyle = (status) => ({
+    Scheduled: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Rescheduled: 'bg-blue-50 text-blue-700 border-blue-200',
+    Completed: 'bg-slate-100 text-slate-500 border-slate-200',
+    Cancelled: 'bg-rose-50 text-rose-700 border-rose-200'
+  }[status] || 'bg-slate-100 text-slate-500 border-slate-200');
+
+  const renderInterviewRoster = () => {
+    const isTA = role === 'TA';
+    const schedulableRequests = externalRequests.filter(r => r.status === 'Approved' && r.candidateName);
+
+    const nowDate = new Date();
+    const todayDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+    const monday = new Date(todayDate);
+    monday.setDate(todayDate.getDate() - ((todayDate.getDay() + 6) % 7));
+    monday.setDate(monday.getDate() + rosterWeekOffset * 7);
+    const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days = [];
+    for (let i = 0; days.length < 5; i += 1) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const weekday = d.getDay();
+      if (weekday === 0 || weekday === 6) continue;
+      days.push({
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        label: weekdayLabels[weekday],
+        day: d.getDate()
+      });
+    }
+    const hourLabels = Array.from({ length: 10 }, (_, i) => `${String(8 + i).padStart(2, '0')}:00`);
+    const weekItems = roster
+      .filter(r => r.status !== 'Cancelled')
+      .map(r => {
+        const start = new Date(String(r.scheduledAt).replace(' ', 'T'));
+        const top = (((start.getHours() - 8) * 60 + start.getMinutes()) / 60) * 48;
+        const height = ((r.durationMinutes || 60) / 60) * 48;
+        return { ...r, date: r.scheduledAt.slice(0, 10), top, height };
+      })
+      .filter(r => !Number.isNaN(r.top) && r.top >= 0 && days.some(d => d.date === r.date));
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Interview Roster</h1>
+            <p className="text-xs text-slate-500">Interview schedule that blocks panel member time. Panel skills must match the job requirements.</p>
+          </div>
+          {isTA && (
+            <button onClick={() => setActiveModal({ type: 'schedule-interview', data: schedulableRequests[0] || null })} disabled={schedulableRequests.length === 0} className="flex items-center gap-1.5 rounded-lg bg-purple-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-purple-800 disabled:opacity-40 disabled:cursor-not-allowed">
+              <CalendarDays className="h-4 w-4" /> Schedule Interview
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Scheduled', value: roster.filter(r => r.status === 'Scheduled').length, tone: 'text-emerald-700' },
+            { label: 'Rescheduled', value: roster.filter(r => r.status === 'Rescheduled').length, tone: 'text-blue-700' },
+            { label: 'Completed', value: roster.filter(r => r.status === 'Completed').length, tone: 'text-slate-600' },
+            { label: 'Cancelled', value: roster.filter(r => r.status === 'Cancelled').length, tone: 'text-rose-700' }
+          ].map(s => (
+            <div key={s.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
+              <p className={`mt-1 text-2xl font-extrabold font-heading ${s.tone}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setRosterWeekOffset(0)} className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${rosterWeekOffset === 0 ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>Current Week</button>
+          <button onClick={() => setRosterWeekOffset(1)} className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${rosterWeekOffset === 1 ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>Next Week</button>
+        </div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs overflow-x-auto">
+          <div className="min-w-[920px]">
+            <div className="grid grid-cols-[3rem_repeat(5,1fr)] gap-1">
+              <div />
+              {days.map(d => <div key={d.date} className="text-center text-[10px] font-bold text-slate-600">{d.label} <span className="text-slate-400">{d.day}</span></div>)}
+            </div>
+            <div className="grid grid-cols-[3rem_repeat(5,1fr)] gap-1 mt-1">
+              <div className="text-right text-[10px] text-slate-400">
+                {hourLabels.map(t => <div key={t} style={{ height: 48 }} className="flex items-start justify-end pt-0.5 border-t border-slate-100">{t}</div>)}
+              </div>
+              {days.map(d => (
+                <div key={d.date} className="relative rounded-lg bg-slate-50/50" style={{ height: 10 * 48 }}>
+                  {hourLabels.map(t => <div key={t} style={{ height: 48 }} className="border-t border-slate-100" />)}
+                  {weekItems.filter(item => item.date === d.date).map(item => (
+                    <div
+                      key={item.id}
+                      className="absolute left-1 right-1 z-10 overflow-hidden rounded-md px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-xs cursor-pointer"
+                      style={{ top: item.top, height: item.height, background: item.status === 'Completed' ? '#64748b' : item.status === 'Rescheduled' ? '#3b82f6' : '#7c3aed' }}
+                      title={`${item.candidateName} · R${item.roundNumber} · ${item.panelName}`}
+                    >
+                      <p className="truncate">{item.candidateName}</p>
+                      <p className="truncate opacity-90">R{item.roundNumber} {item.interviewType} · {item.scheduledAt.slice(11, 16)}</p>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+                <tr>
+                  <th className="px-5 py-3.5">Candidate / Role</th>
+                  <th className="px-5 py-3.5">Panel</th>
+                  <th className="px-5 py-3.5">Round</th>
+                  <th className="px-5 py-3.5">Type</th>
+                  <th className="px-5 py-3.5">Scheduled</th>
+                  <th className="px-5 py-3.5">Duration</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  {isTA && <th className="px-5 py-3.5 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {roster.length === 0 && <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No interviews scheduled.</td></tr>}
+                {roster.map(item => (
+                  <tr key={item.id} className="hover:bg-slate-50/80">
+                    <td className="px-5 py-3"><p className="font-semibold text-slate-800">{item.candidateName}</p><p className="text-[11px] text-slate-400">{item.jobTitle}</p></td>
+                    <td className="px-5 py-3 text-slate-700">{item.panelName}</td>
+                    <td className="px-5 py-3"><span className="font-semibold text-slate-700">R{item.roundNumber}</span>{item.level ? <span className="text-slate-400"> · {item.level}</span> : null}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.interviewType}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.durationMinutes}m</td>
+                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
+                    {isTA && (
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        {item.status !== 'Completed' && item.status !== 'Cancelled' && (
+                          <>
+                            <button onClick={() => handlers.updateInterview(item.id, { status: 'Completed' })} className="rounded-md bg-emerald-50 px-2 py-1 font-semibold text-emerald-700 hover:bg-emerald-100">Complete</button>
+                            <button onClick={() => setActiveModal({ type: 'reschedule-interview', data: item })} className="ml-1 rounded-md bg-blue-50 px-2 py-1 font-semibold text-blue-700 hover:bg-blue-100">Reschedule</button>
+                            <button onClick={() => { if (window.confirm('Cancel this interview?')) handlers.updateInterview(item.id, { status: 'Cancelled' }); }} className="ml-1 rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100">Cancel</button>
+                          </>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  //  RENDER: Panel Interview Profile (Panel role)
+  // ============================================================
+  const renderInterviewProfile = () => {
+    if (!myPanel) {
+      return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-xs text-slate-400">
+          No interview panel profile is linked to your account. Contact your administrator.
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Interview Profile</h1>
+            <p className="text-xs text-slate-500">Maintain the skills you can interview and your available time slots.</p>
+          </div>
+          <button onClick={() => setActiveModal({ type: 'panel-profile', data: myPanel })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-teal-800">
+            <Pencil className="h-3.5 w-3.5" /> Edit Profile
+          </button>
+        </div>
+        {(() => {
+          const upcoming = roster.filter(r => r.panelName === myPanel.name && (r.status === 'Scheduled' || r.status === 'Rescheduled')).length;
+          const stats = [
+            { label: 'Open slots', value: (myPanel.timeSlots || []).length, tone: 'text-teal-700' },
+            { label: 'Upcoming interviews', value: upcoming, tone: 'text-purple-700' },
+            { label: 'Skills', value: (myPanel.skills || []).length, tone: 'text-sky-700' }
+          ];
+          return (
+            <div className="grid grid-cols-3 gap-3">
+              {stats.map(s => (
+                <div key={s.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
+                  <p className={`mt-1 text-2xl font-extrabold font-heading ${s.tone}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <h3 className="text-sm font-bold text-slate-900">Skills I can interview</h3>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {(myPanel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-100">{s}</span>)}
+              {(myPanel.skills || []).length === 0 && <span className="text-xs text-slate-400">No skills configured.</span>}
+            </div>
+            <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Domains</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {(myPanel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
+              {(myPanel.domains || []).length === 0 && <span className="text-xs text-slate-400">No domains selected.</span>}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900">Available time slots (1h)</h3>{(myPanel.recurringSlots || []).length > 0 && <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700">Repeats weekly</span>}</div>
+            <div className="mt-3 space-y-2.5">
+              {(() => {
+                const byDate = {};
+                (myPanel.timeSlots || []).forEach(slot => { (byDate[slot.date] = byDate[slot.date] || []).push(slot.time); });
+                const dates = Object.keys(byDate).sort();
+                if (dates.length === 0) return <span className="text-xs text-slate-400">No slots configured. Use Edit Profile to add your availability.</span>;
+                const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                return dates.map(date => (
+                  <div key={date} className="flex items-start gap-3">
+                    <div className="w-16 shrink-0 text-[11px] font-bold text-slate-700">{wd[new Date(`${date}T00:00:00`).getDay()]} <span className="font-medium text-slate-400">{date.slice(5)}</span></div>
+                    <div className="flex flex-wrap gap-1">{byDate[date].sort().map(time => <span key={time} className="rounded-md border border-teal-100 bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700">{time}</span>)}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  //  RENDER: Panel My Schedule (Panel role)
+  // ============================================================
+  const renderMySchedule = () => {
+    const own = roster.filter(item => item.panelName === myPanel?.name).sort((a, b) => String(a.scheduledAt).localeCompare(String(b.scheduledAt)));
+    const upcomingCount = own.filter(i => i.status === 'Scheduled' || i.status === 'Rescheduled').length;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">My Schedule</h1>
+          <p className="text-xs text-slate-500">Interviews where your time is blocked as a panel member. <span className="font-semibold text-purple-700">{upcomingCount} upcoming</span> · {own.length} total.</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+                <tr><th className="px-5 py-3.5">Candidate</th><th className="px-5 py-3.5">Role</th><th className="px-5 py-3.5">Round</th><th className="px-5 py-3.5">Type</th><th className="px-5 py-3.5">Scheduled</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Actions</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {own.length === 0 && <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">No interviews scheduled for you.</td></tr>}
+                {own.map(item => (
+                  <tr key={item.id}>
+                    <td className="px-5 py-3 font-semibold text-slate-800">{item.candidateName}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.jobTitle}</td>
+                    <td className="px-5 py-3 text-slate-700">R{item.roundNumber}{item.level ? ` · ${item.level}` : ''}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.interviewType}</td>
+                    <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
+                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
+                    <td className="px-5 py-3 text-right">
+                      {item.status !== 'Cancelled' && item.status !== 'Completed' && (
+                        <button onClick={() => { if (window.confirm(`Cancel your interview with ${item.candidateName} on ${item.scheduledAt}?`)) handlers.updateInterview(item.id, { status: 'Cancelled' }); }} className="rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100">Cancel</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
   //  RENDER: Users & Access (Admin only)
   // ============================================================
   const renderUsers = () => (
@@ -1607,7 +2122,7 @@ export default function CaliberateApp() {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {navigationItems.map(item => {
             const Icon = item.icon;
-            const isActive = page === item.id;
+            const isActive = activePage === item.id;
             return (
               <button key={item.id} onClick={() => { setPage(item.id); setSearchQuery(''); setMobileNavOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-teal-50 text-teal-800 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
                 <div className="flex items-center gap-3"><Icon className={`h-4 w-4 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} /><span>{item.label}</span></div>
@@ -1635,7 +2150,7 @@ export default function CaliberateApp() {
             <button onClick={() => setMobileNavOpen(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:hidden" title="Open navigation"><Menu className="h-5 w-5" /></button>
             <span className="font-semibold text-slate-900 font-heading">Caliberate</span>
             <ChevronRight className="h-4 w-4 text-slate-300" />
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{page}</span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{navigationItems.find(i => i.id === activePage)?.label || activePage}</span>
             {role === 'Manager' && (<span className="ml-2 hidden text-xs text-teal-700 sm:inline-flex items-center gap-1 bg-teal-50 px-2 py-0.5 rounded-md font-medium"><Building className="h-3 w-3" /> Digital Practice (Rachel Shah)</span>)}
           </div>
           <div className="flex items-center gap-3">
@@ -1643,25 +2158,40 @@ export default function CaliberateApp() {
             <div className="relative">
               <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition" title="Alerts and Notifications">
                 <Bell className="h-5 w-5" />
-                {(metrics.redFlagsCount > 0 || metrics.rolloffs30d.length > 0 || metrics.expiringCerts.length > 0) && (<span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />)}
+                {(notifications.some(n => !n.read) || (!restrictedRole && (metrics.redFlagsCount > 0 || metrics.rolloffs30d.length > 0 || metrics.expiringCerts.length > 0))) && (<span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />)}
               </button>
               {notificationPanelOpen && (
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2 font-semibold text-sm"><Bell className="h-4 w-4 text-teal-600" /><span>System Notifications & Flags</span></div>
-                    <button onClick={() => setNotificationPanelOpen(false)} className="rounded-md p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+                    <div className="flex items-center gap-2 font-semibold text-sm"><Bell className="h-4 w-4 text-teal-600" /><span>Notifications</span>{notifications.some(n => !n.read) ? <span className="rounded-full bg-rose-100 px-1.5 text-[10px] font-bold text-rose-700">{notifications.filter(n => !n.read).length}</span> : null}</div>
+                    <div className="flex items-center gap-1">
+                      {notifications.some(n => !n.read) && <button onClick={handlers.markAllNotificationsRead} className="text-[10px] font-bold text-teal-700 hover:underline">Mark all read</button>}
+                      <button onClick={() => setNotificationPanelOpen(false)} className="rounded-md p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+                    </div>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs py-2">
-                    {metrics.redFlagsCount > 0 && (
+                    {notifications.length === 0 && <p className="py-4 text-center text-slate-400">No notifications yet.</p>}
+                    {notifications.map(n => (
+                      <div key={n.id} className={`py-2.5 flex items-start gap-2.5 ${n.read ? 'opacity-60' : ''}`}>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-teal-100 text-teal-700"><Calendar className="h-3.5 w-3.5" /></span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800">{n.title}</p>
+                          <p className="text-[11px] text-slate-500">{n.body}</p>
+                          <p className="mt-0.5 text-[10px] text-slate-400">{n.createdAt}</p>
+                        </div>
+                        {!n.read && <button onClick={() => handlers.markNotificationRead(n.id)} className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-200">Read</button>}
+                      </div>
+                    ))}
+                    {!restrictedRole && metrics.redFlagsCount > 0 && (
                       <div className="py-2.5 flex items-start gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-rose-100 text-rose-700"><Flag className="h-3.5 w-3.5" /></span><div><p className="font-semibold text-slate-800">{metrics.redFlagsCount} Resources Over Red Flag Threshold</p><button onClick={() => { setPage('Bench Watch'); setNotificationPanelOpen(false); }} className="mt-1 text-teal-700 font-semibold hover:underline">View Bench Watch →</button></div></div>
                     )}
-                    {metrics.rolloffs30d.length > 0 && (
+                    {!restrictedRole && metrics.rolloffs30d.length > 0 && (
                       <div className="py-2.5 flex items-start gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700"><Calendar className="h-3.5 w-3.5" /></span><div><p className="font-semibold text-slate-800">{metrics.rolloffs30d.length} Deployments Ending in 30 Days</p><button onClick={() => { setPage('Roll-offs'); setNotificationPanelOpen(false); }} className="mt-1 text-teal-700 font-semibold hover:underline">View Roll-off Pipeline →</button></div></div>
                     )}
-                    {metrics.expiringCerts.length > 0 && (
+                    {!restrictedRole && metrics.expiringCerts.length > 0 && (
                       <div className="py-2.5 flex items-start gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-100 text-blue-700"><Award className="h-3.5 w-3.5" /></span><div><p className="font-semibold text-slate-800">{metrics.expiringCerts.length} Certifications Expiring Soon</p></div></div>
                     )}
-                    {requests.filter(r => r.status?.includes('Pending')).length > 0 && (
+                    {!restrictedRole && requests.filter(r => r.status?.includes('Pending')).length > 0 && (
                       <div className="py-2.5 flex items-start gap-2.5"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-purple-100 text-purple-700"><Inbox className="h-3.5 w-3.5" /></span><div><p className="font-semibold text-slate-800">Staffing Requests Awaiting Approval</p><button onClick={() => { setPage('Requests'); setNotificationPanelOpen(false); }} className="mt-1 text-purple-700 font-semibold hover:underline">Review Queue →</button></div></div>
                     )}
                   </div>
@@ -1687,21 +2217,26 @@ export default function CaliberateApp() {
         {/* PAGE BODY */}
         <main className="flex-1 overflow-y-auto bg-slate-50/60 p-5 lg:p-8">
           <div className="mx-auto max-w-7xl space-y-6">
-            {page === 'Dashboard' && renderDashboard()}
-            {page === 'Employees' && renderEmployees()}
-            {page === 'Bench Watch' && renderBenchWatch()}
-            {page === 'Roll-offs' && renderRolloffs()}
-            {page === 'Openings' && renderOpenings()}
-            {page === 'Requests' && renderRequests()}
-            {page === 'Deployments' && renderDeployments()}
-            {page === 'Supply Demand' && renderSupplyDemand()}
-            {page === 'Reports' && renderReports()}
-            {page === 'Settings' && renderSettings()}
-            {page === 'Users' && isAdmin && renderUsers()}
-            {page === 'My Profile' && renderMyProfile()}
-            {page === 'My Applications' && renderMyApplications()}
-            {page === "Who's Free" && renderWhosFreeBenchFinder()}
-            {page === 'Upskilling' && renderUpskilling()}
+            {activePage === 'Dashboard' && renderDashboard()}
+            {activePage === 'Employees' && renderEmployees()}
+            {activePage === 'Bench Watch' && renderBenchWatch()}
+            {activePage === 'Roll-offs' && renderRolloffs()}
+            {activePage === 'Openings' && renderOpenings()}
+            {activePage === 'Requests' && renderRequests()}
+            {activePage === 'Deployments' && renderDeployments()}
+            {activePage === 'Supply Demand' && renderSupplyDemand()}
+            {activePage === 'Reports' && renderReports()}
+            {activePage === 'Settings' && renderSettings()}
+            {activePage === 'Users' && isAdmin && renderUsers()}
+            {activePage === 'External Hires' && renderExternalHires()}
+            {activePage === 'Panels' && renderPanels()}
+            {activePage === 'Interview Roster' && renderInterviewRoster()}
+            {activePage === 'Interview Profile' && role === 'Panel' && renderInterviewProfile()}
+            {activePage === 'My Schedule' && role === 'Panel' && renderMySchedule()}
+            {activePage === 'My Profile' && renderMyProfile()}
+            {activePage === 'My Applications' && renderMyApplications()}
+            {activePage === "Who's Free" && renderWhosFreeBenchFinder()}
+            {activePage === 'Upskilling' && renderUpskilling()}
           </div>
         </main>
       </div>
@@ -1711,11 +2246,15 @@ export default function CaliberateApp() {
 
       {/* Action modals */}
       <Modals
+        key={`${passwordModalOpen ? 'change-password' : activeModal?.type || 'none'}-${activeModal?.data?.id ?? 'new'}`}
         modal={passwordModalOpen ? { type: 'change-password' } : activeModal}
         onClose={() => { if (passwordModalOpen) setPasswordModalOpen(false); else setActiveModal(null); }}
         today={TODAY}
         handlers={handlers}
         notify={showToast}
+        externalRequests={externalRequests}
+        panels={panels}
+        roster={roster}
         onChangePassword={async (currentPassword, newPassword) => {
           await changePassword(currentPassword, newPassword);
           setPasswordModalOpen(false);

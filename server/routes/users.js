@@ -40,6 +40,19 @@ function activeAdminCount(db, excludingId = null) {
   return Number(row?.count || 0);
 }
 
+function syncPanelProfile(db, userId, name, email, roleTitle, active) {
+  const existing = one(db, 'SELECT id FROM panels WHERE user_id = ?', [userId]);
+  if (existing) {
+    db.run('UPDATE panels SET name = ?, email = ?, role_title = ?, active = ? WHERE id = ?', [name, email, roleTitle || '', active ? 1 : 0, existing.id]);
+  } else {
+    db.run(
+      `INSERT INTO panels (user_id, name, email, role_title, practice, skills, domains, time_slots, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'Digital', '[]', '[]', '[]', ?, datetime('now'), datetime('now'))`,
+      [userId, name, email, roleTitle || '', active ? 1 : 0]
+    );
+  }
+}
+
 router.get('/', async (req, res) => {
   const db = await getDb();
   const users = all(db, 'SELECT * FROM users ORDER BY name ASC');
@@ -66,6 +79,7 @@ router.post('/', async (req, res) => {
   }
 
   const id = `usr-${randomUUID()}`;
+  const defaultPage = data.defaultPage || (data.role === 'Panel' ? 'Interview Profile' : data.role === 'TA' ? 'Interview Roster' : 'Dashboard');
   db.run(
     `INSERT INTO users (id, name, email, password, role, role_title, department, avatar, badge_color, description, default_page, person_id, must_change_password, active, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
@@ -73,12 +87,16 @@ router.post('/', async (req, res) => {
       id, data.name, email, bcrypt.hashSync(data.password, config.bcryptRounds), data.role,
       data.roleTitle || '', data.department || '', initials(data.name),
       'bg-slate-100 text-slate-700 border-slate-200', data.description || '',
-      data.defaultPage || 'Dashboard', data.personId || null,
+      defaultPage, data.personId || null,
       data.mustChangePassword === false ? 0 : 1, data.active === false ? 0 : 1
     ]
   );
   saveDb();
   const created = one(db, 'SELECT * FROM users WHERE id = ?', [id]);
+  if (created.role === 'Panel') {
+    syncPanelProfile(db, created.id, created.name, created.email, created.role_title, true);
+    saveDb();
+  }
   await audit(req, 'Created User', created.email, `${created.name} · ${created.role}`, null, serialize(created));
   res.status(201).json(serialize(created));
 });
@@ -118,6 +136,7 @@ router.put('/:id', async (req, res) => {
   const roleChanged = nextRole !== existing.role;
   const activeChanged = nextActive !== Boolean(existing.active);
   const revokeSessions = passwordChanged || roleChanged || activeChanged || data.mustChangePassword === true;
+  const defaultPage = data.defaultPage || (nextRole === 'Panel' ? 'Interview Profile' : nextRole === 'TA' ? 'Interview Roster' : existing.default_page);
 
   db.run(
     `UPDATE users SET name = ?, email = ?, role = ?, role_title = ?, department = ?, description = ?, default_page = ?, person_id = ?, must_change_password = ?, active = ?, password = ?, token_version = token_version + ?, updated_at = datetime('now') WHERE id = ?`,
@@ -128,7 +147,7 @@ router.put('/:id', async (req, res) => {
       data.roleTitle ?? existing.role_title,
       data.department ?? existing.department,
       data.description ?? existing.description,
-      data.defaultPage ?? existing.default_page,
+      defaultPage,
       data.personId === undefined ? existing.person_id : data.personId,
       data.mustChangePassword === undefined ? existing.must_change_password : (data.mustChangePassword ? 1 : 0),
       nextActive ? 1 : 0,
@@ -139,6 +158,10 @@ router.put('/:id', async (req, res) => {
   );
   saveDb();
   const updated = one(db, 'SELECT * FROM users WHERE id = ?', [existing.id]);
+  if (updated.role === 'Panel') {
+    syncPanelProfile(db, updated.id, updated.name, updated.email, updated.role_title, Boolean(updated.active));
+    saveDb();
+  }
   await audit(req, 'Updated User', updated.email, `${updated.name} · ${updated.role}`, serialize(existing), serialize(updated));
   res.json(serialize(updated));
 });
@@ -152,6 +175,9 @@ router.delete('/:id', async (req, res) => {
     return res.status(400).json({ error: 'At least one active administrator must remain.' });
   }
   db.run("UPDATE users SET active = 0, token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?", [existing.id]);
+  if (existing.role === 'Panel') {
+    db.run("UPDATE panels SET active = 0, updated_at = datetime('now') WHERE user_id = ?", [existing.id]);
+  }
   saveDb();
   const updated = one(db, 'SELECT * FROM users WHERE id = ?', [existing.id]);
   await audit(req, 'Deactivated User', existing.email, existing.name, serialize(existing), serialize(updated));

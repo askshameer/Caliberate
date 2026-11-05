@@ -6,6 +6,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGet } from '../hooks/useApi';
 
+// Dark-theme badge colours so the role label stays readable on the landing cards.
+const ROLE_BADGE = {
+  Admin: 'bg-rose-500/15 text-rose-200 border-rose-400/40',
+  Operations: 'bg-amber-500/15 text-amber-200 border-amber-400/40',
+  Manager: 'bg-teal-500/15 text-teal-200 border-teal-400/40',
+  Resource: 'bg-emerald-500/15 text-emerald-200 border-emerald-400/40',
+  Sales: 'bg-indigo-500/15 text-indigo-200 border-indigo-400/40',
+  TA: 'bg-fuchsia-500/15 text-fuchsia-200 border-fuchsia-400/40',
+  Panel: 'bg-sky-500/15 text-sky-200 border-sky-400/40'
+};
+
 export default function LoginPage() {
   const { login, demoMode, configLoaded, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -138,7 +149,7 @@ export default function LoginPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-bold text-sm text-white group-hover:text-teal-300 transition">{persona.name}</span>
-                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${persona.badgeColor}`}>{persona.role}</span>
+                          <span className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${ROLE_BADGE[persona.role] || 'bg-slate-500/15 text-slate-200 border-slate-400/30'}`}>{persona.role}</span>
                         </div>
                         <p className="text-xs text-slate-400 font-medium mt-0.5">{persona.roleTitle}</p>
                         <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{persona.description}</p>

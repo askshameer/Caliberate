@@ -98,6 +98,8 @@ export function AuthProvider({ children }) {
     role: currentUser?.role || null,
     isPrivileged: currentUser?.role === 'Admin' || currentUser?.role === 'Operations',
     isAdmin: currentUser?.role === 'Admin',
+    isPanel: currentUser?.role === 'Panel',
+    isTA: currentUser?.role === 'TA',
     mustChangePassword: Boolean(currentUser?.mustChangePassword)
   };
 
