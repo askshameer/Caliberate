@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, Users, Flag, Layers, Briefcase, Settings,
   Search, Bell, ArrowUpRight, Download, Plus, X,
@@ -44,6 +44,8 @@ export default function CaliberateApp() {
   const [drawerTab, setDrawerTab] = useState('overview');
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const navigationRef = useRef(null);
+  const navigationToggleRef = useRef(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [rosterWeekOffset, setRosterWeekOffset] = useState(0);
   const [managerOrgView, setManagerOrgView] = useState('direct');
@@ -52,6 +54,47 @@ export default function CaliberateApp() {
   const [evalPersonId, setEvalPersonId] = useState(null);
   const [draftSettings, setDraftSettings] = useState(null);
   const [experienceDraft, setExperienceDraft] = useState(null);
+
+  useEffect(() => {
+    // Match Tailwind's 2xl breakpoint: laptops use the navigation drawer.
+    const desktop = window.matchMedia('(min-width: 96rem)');
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMobileNavOpen(false);
+    };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const navigation = navigationRef.current;
+    navigation.querySelector('button').focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileNavOpen(false);
+      }
+      if (event.key === 'Tab') {
+        const buttons = [...navigation.querySelectorAll('button:not(:disabled)')]
+          .filter(button => button.getClientRects().length > 0);
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    navigation.addEventListener('keydown', handleKeyDown);
+    const toggle = navigationToggleRef.current;
+    return () => {
+      navigation.removeEventListener('keydown', handleKeyDown);
+      if (toggle?.getClientRects().length) toggle.focus();
+    };
+  }, [mobileNavOpen]);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -2100,17 +2143,17 @@ export default function CaliberateApp() {
   return (
     <div className="workspace flex h-dvh overflow-hidden bg-slate-50 text-slate-800">
       <a className="skip-link" href="#workspace-content">Skip to content</a>
-      {/* Mobile navigation overlay */}
+      {/* Navigation drawer for phones, tablets, and smaller laptops */}
       {mobileNavOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />
+        <div className="navigation-backdrop fixed inset-0 z-40 bg-black/40 2xl:hidden" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />
       )}
 
       {/* SIDEBAR */}
-      <aside id="workspace-navigation" aria-label="Workspace navigation" className={`workspace-sidebar ${mobileNavOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:static lg:flex`}>
+      <aside ref={navigationRef} id="workspace-navigation" aria-label="Workspace navigation" role={mobileNavOpen ? 'dialog' : undefined} aria-modal={mobileNavOpen ? true : undefined} className={`workspace-sidebar ${mobileNavOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 shrink-0 flex-col border-r border-slate-200 bg-white 2xl:static 2xl:flex`}>
         <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-700 to-emerald-600 text-white shadow-md shadow-teal-700/20"><Layers className="h-5 w-5" /></div>
           <div><span className="text-xl font-extrabold tracking-tight text-slate-900 font-heading">Caliber<span className="text-teal-600">ate</span></span><span className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Resource Intelligence</span></div>
-          <button aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden"><X className="h-4 w-4" /></button>
+          <button aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} className="ml-auto flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 2xl:hidden"><X className="h-4 w-4" /></button>
         </div>
         <div className="mx-3 mt-3 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
           <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logged In As</span><span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-xs font-bold text-teal-800">{currentUser?.role}</span></div>
@@ -2147,11 +2190,11 @@ export default function CaliberateApp() {
       </aside>
 
       {/* MAIN */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div inert={mobileNavOpen} className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* HEADER — NO "View As" DROPDOWN */}
         <header className="workspace-header flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <button onClick={() => setMobileNavOpen(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" title="Open navigation" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen}><Menu className="h-5 w-5" /></button>
+            <button ref={navigationToggleRef} onClick={() => setMobileNavOpen(true)} className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-100 2xl:hidden" title="Open navigation" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen}><Menu className="h-5 w-5" /></button>
             <span className="hidden lg:inline font-medium text-slate-500">Workspace</span>
             <ChevronRight className="hidden lg:block h-4 w-4 text-slate-300" />
             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{navigationItems.find(i => i.id === activePage)?.label || activePage}</span>

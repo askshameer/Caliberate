@@ -307,12 +307,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .person-drawer > .flex { overflow-x: auto; }
 .person-drawer > .flex > button { min-width: 78px; }
 
-/* Tablet: keep the full content width available, with navigation in a drawer. */
+/* Keep laptop content full-width; the sidebar becomes an overlay below 2xl. */
+@media (width < 96rem) {
+  .workspace-sidebar { height: 100dvh; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); box-shadow: 12px 0 32px #132f2926; }
+}
+
+/* Tablet: compact the header and stack page headings. */
 @media (max-width: 63.9375em) {
   .workspace-header { padding-inline: 16px; min-height: 64px; }
   .workspace-header > div:first-child > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .workspace-header > div:last-child { flex-shrink: 0; gap: 6px; }
-  .workspace-sidebar { height: 100dvh; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
   .workspace-content { padding: 24px; }
   .page-heading { flex-direction: column; }
   .page-heading > div:has(h1) { flex-basis: auto; }
@@ -357,7 +361,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   .metric-grid, .workspace-content .grid-cols-2, .person-drawer .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
   .workspace-content .col-span-2 { grid-column: auto; }
 }
-@media (max-height: 600px) and (max-width: 63.9375em) {
+@media (max-height: 600px) and (width < 96rem) {
   .workspace-sidebar nav { flex-shrink: 0; overflow-y: visible; }
 }
 .demo-section-primary { margin-top: 24px; padding-top: 0; border-top: 0; }
