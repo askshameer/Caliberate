@@ -72,6 +72,7 @@ export default function LoginPage() {
           <div className="landing-story-note"><Shield size={17} aria-hidden="true" /><span>A workspace tailored to your role.</span></div>
         </section>
         <section className="login-card" aria-labelledby="sign-in-heading">
+          <img src={teamIllustration} className="login-illustration" alt="A team collaborating around a laptop and a growth chart" />
           <span className="eyebrow">SIGN IN TO CALIBERATE</span>
           <h2 id="sign-in-heading">Welcome back</h2>
           <p className="login-card-intro">Your next great team starts here.</p>
