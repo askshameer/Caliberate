@@ -2142,7 +2142,7 @@ export default function CaliberateApp() {
           <button onClick={logout} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/60 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
             <LogOut className="h-3.5 w-3.5" /><span>Sign Out ({currentUser?.name?.split(' ')[0]})</span>
           </button>
-          <div className="flex items-center justify-between text-xs text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v1.5.0</span></div>
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v2.0.0</span></div>
         </div>
       </aside>
 
