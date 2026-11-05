@@ -17,18 +17,37 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [configError, setConfigError] = useState('');
+  const [configAttempt, setConfigAttempt] = useState(0);
+  const retryConfig = useCallback(() => setConfigAttempt(attempt => attempt + 1), []);
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer;
 
+    setConfigLoaded(false);
+    setConfigError('');
     apiGet('/auth/config')
       .then((config) => {
-        if (!cancelled) setDemoMode(Boolean(config?.demoMode));
+        if (!config || typeof config.demoMode !== 'boolean') throw new Error('Invalid sign-in configuration.');
+        if (!cancelled) setDemoMode(config.demoMode);
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (cancelled) return;
+        setConfigError(error.message || 'Could not load sign-in options.');
+        if (error.status === 429) {
+          retryTimer = setTimeout(retryConfig, error.retryAfterMs || 30000);
+        }
+      })
       .finally(() => {
         if (!cancelled) setConfigLoaded(true);
       });
+
+    return () => { cancelled = true; clearTimeout(retryTimer); };
+  }, [configAttempt, retryConfig]);
+
+  useEffect(() => {
+    let cancelled = false;
 
     // The session is an httpOnly cookie. Always validate it with the server
     // instead of trusting cached profile data.
@@ -94,6 +113,8 @@ export function AuthProvider({ children }) {
     loading,
     demoMode,
     configLoaded,
+    configError,
+    retryConfig,
     isAuthenticated: !!currentUser,
     role: currentUser?.role || null,
     isPrivileged: currentUser?.role === 'Admin' || currentUser?.role === 'Operations',

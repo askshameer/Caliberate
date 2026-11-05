@@ -585,8 +585,8 @@ export default function CaliberateApp() {
   //  RENDER: Dashboard Page
   // ============================================================
   const renderDashboard = () => (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="dashboard-page space-y-6">
+      <div className="dashboard-heading page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-widest text-teal-600">
@@ -594,7 +594,7 @@ export default function CaliberateApp() {
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading sm:text-3xl">
-            {role === 'Manager' ? 'Team Capacity & Roll-off Radar' : 'Workforce Utilization & Deployment Radar'}
+            {role === 'Manager' ? 'Your team, at a glance' : 'Your workforce, at a glance'}
           </h1>
           <p className="mt-1 text-xs text-slate-500">
             {role === 'Manager'
@@ -621,7 +621,7 @@ export default function CaliberateApp() {
       </div>
 
       {/* Executive Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="metric-grid grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between text-slate-500"><span className="text-xs font-semibold uppercase tracking-wider">Active Headcount</span><Users className="h-4 w-4 text-teal-600" /></div>
           <div className="mt-3 flex items-baseline gap-2"><span className="text-3xl font-extrabold text-slate-900 font-heading">{metrics.total}</span><span className="text-xs text-slate-400">resources</span></div>
@@ -651,8 +651,8 @@ export default function CaliberateApp() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs lg:col-span-7">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs xl:col-span-7">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-slate-900 font-heading">Bench Aging Distribution</h2>
@@ -664,9 +664,9 @@ export default function CaliberateApp() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={benchChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '12px' }} formatter={(val) => [`${val} Resources`, 'Count']} />
+                <XAxis dataKey="bucket" tickLine={false} axisLine={false} tick={{ fontSize: '0.875rem', fill: '#64748b' }} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: '0.875rem', fill: '#64748b' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '0.875rem' }} formatter={(val) => [`${val} Resources`, 'Count']} />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={48}>
                   {benchChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -686,7 +686,7 @@ export default function CaliberateApp() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs lg:col-span-5 flex flex-col justify-between">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs xl:col-span-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               <div><h2 className="text-base font-bold text-slate-900 font-heading">Upcoming Roll-offs</h2><p className="text-xs text-slate-400">Allocations ending within next 30 days</p></div>
@@ -702,11 +702,11 @@ export default function CaliberateApp() {
                     <div key={p.id} onClick={() => { setSelectedPersonForDrawer(p); setDrawerTab('allocations'); }} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-3 hover:bg-slate-100/80 cursor-pointer transition">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-800 text-xs font-bold">{p.name.split(' ').map(s => s[0]).join('')}</div>
-                        <div className="truncate"><p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p><p className="text-[11px] text-slate-400 truncate">{p.project} · {p.customer}</p></div>
+                        <div className="truncate"><p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p><p className="text-xs text-slate-400 truncate">{p.project} · {p.customer}</p></div>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-xs font-bold text-amber-600">{daysLeft}d left</span>
-                        <span className={`block text-[10px] font-semibold ${p.extensionLikelihood === 'Likely' ? 'text-emerald-600' : p.extensionLikelihood === 'Unlikely' ? 'text-rose-600' : 'text-slate-400'}`}>Ext: {p.extensionLikelihood}</span>
+                        <span className={`block text-xs font-semibold ${p.extensionLikelihood === 'Likely' ? 'text-emerald-600' : p.extensionLikelihood === 'Unlikely' ? 'text-rose-600' : 'text-slate-400'}`}>Ext: {p.extensionLikelihood}</span>
                       </div>
                     </div>
                   );
@@ -734,7 +734,7 @@ export default function CaliberateApp() {
           </div>
           <button onClick={() => setPage('Bench Watch')} className="text-xs font-semibold text-teal-700 hover:underline">View all bench ({metrics.benchCount}) →</button>
         </div>
-        <div className="overflow-x-auto">
+        <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr>
@@ -759,21 +759,21 @@ export default function CaliberateApp() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{p.name.split(' ').map(s => s[0]).join('')}</div>
-                          <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-[11px] text-slate-400">{p.code} · {p.title}</p></div>
+                          <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-xs text-slate-400">{p.code} · {p.title}</p></div>
                         </div>
                       </td>
-                      <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{p.practice}</span></td>
+                      <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{p.practice}</span></td>
                       <td className="px-5 py-3"><span className="text-sm font-bold text-rose-600">{p.days}d</span></td>
                       <td className="px-5 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${flag === 'Critical' ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>⚑ {flag}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${flag === 'Critical' ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>⚑ {flag}</span>
                       </td>
                       <td className="px-5 py-3">
-                        <div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{s.name}</span>))}</div>
+                        <div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">{s.name}</span>))}</div>
                       </td>
                       <td className="px-5 py-3 text-slate-600">{p.manager}</td>
                       {privileged && <td className="px-5 py-3 font-mono text-slate-600">${p.dailyCost}/d</td>}
                       <td className="px-5 py-3 text-right">
-                        <button onClick={(e) => { e.stopPropagation(); setPage('Openings'); }} className="rounded-lg bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-100 transition">Match Jobs</button>
+                        <button onClick={(e) => { e.stopPropagation(); setPage('Openings'); }} className="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition">Match Jobs</button>
                       </td>
                     </tr>
                   );
@@ -793,7 +793,7 @@ export default function CaliberateApp() {
   // ============================================================
   const renderEmployees = () => (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Resource Directory</h1><p className="text-xs text-slate-500">Complete workforce roster with skills, allocations, and status tracking.</p></div>
         <div className="flex items-center gap-2">
           <button onClick={() => exportCSV('caliberate-directory.csv')} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50">
@@ -831,7 +831,7 @@ export default function CaliberateApp() {
       </div>
       {/* Table */}
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr>
@@ -853,18 +853,18 @@ export default function CaliberateApp() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{p.name.split(' ').map(s => s[0]).join('')}</div>
-                        <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-[11px] text-slate-400">{p.code} · {p.title}</p></div>
+                        <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-xs text-slate-400">{p.code} · {p.title}</p></div>
                       </div>
                     </td>
-                    <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{p.practice}</span></td>
+                    <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{p.practice}</span></td>
                     <td className="px-5 py-3 text-slate-600">{p.location}</td>
                     <td className="px-5 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${statusColors[p.status] || ''}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${statusColors[p.status] || ''}`}>
                         {p.status}{p.status === 'Deployed' && p.allocationPct < 100 ? ` (${p.allocationPct}%)` : ''}{p.status === 'Bench' ? ` · ${p.days}d` : ''}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-slate-600">{p.project ? `${p.project} · ${p.customer}` : '—'}</td>
-                    <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{s.name}</span>))}</div></td>
+                    <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">{s.name}</span>))}</div></td>
                     {privileged && <td className="px-5 py-3 font-mono text-slate-600">${p.rate}/hr</td>}
                     <td className="px-5 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       {privileged && (
@@ -910,7 +910,7 @@ export default function CaliberateApp() {
           ))}
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                 <tr>
@@ -933,14 +933,14 @@ export default function CaliberateApp() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{p.name.split(' ').map(s => s[0]).join('')}</div>
-                          <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-[11px] text-slate-400">{p.code} · {p.title}</p></div>
+                          <div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-xs text-slate-400">{p.code} · {p.title}</p></div>
                         </div>
                       </td>
-                      <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{p.practice}</span></td>
+                      <td className="px-5 py-3"><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{p.practice}</span></td>
                       <td className="px-5 py-3"><span className="text-sm font-bold" style={{ color: flag === 'Critical' ? '#9f1239' : flag === 'Red' ? '#e11d48' : flag === 'Amber' ? '#d97706' : '#059669' }}>{p.days}d</span></td>
-                      <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${flagColors[flag] || ''}`}>⚑ {flag}</span></td>
+                      <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase border ${flagColors[flag] || ''}`}>⚑ {flag}</span></td>
                       <td className="px-5 py-3 text-slate-500">{p.benchStart || '—'}</td>
-                      <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{s.name}</span>))}</div></td>
+                      <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">{s.name}</span>))}</div></td>
                       <td className="px-5 py-3 text-slate-600">{p.manager}</td>
                       {privileged && <td className="px-5 py-3 font-mono text-slate-600">${p.dailyCost}/d</td>}
                     </tr>
@@ -963,7 +963,7 @@ export default function CaliberateApp() {
       <div className="space-y-6">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">90-Day Roll-off Pipeline</h1><p className="text-xs text-slate-500">All deployments ending within the next 90 days, ordered by urgency.</p></div>
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                 <tr><th className="px-5 py-3.5">Employee</th><th className="px-5 py-3.5">Project</th><th className="px-5 py-3.5">Customer</th><th className="px-5 py-3.5">End Date</th><th className="px-5 py-3.5">Days Left</th><th className="px-5 py-3.5">Extension</th><th className="px-5 py-3.5">Skills</th></tr>
@@ -973,13 +973,13 @@ export default function CaliberateApp() {
                   const daysLeft = dateDiff(p.end);
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition cursor-pointer" onClick={() => { setSelectedPersonForDrawer(p); setDrawerTab('allocations'); }}>
-                      <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{p.name.split(' ').map(s => s[0]).join('')}</div><div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-[11px] text-slate-400">{p.title}</p></div></div></td>
+                      <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{p.name.split(' ').map(s => s[0]).join('')}</div><div><p className="font-semibold text-slate-800">{p.name}</p><p className="text-xs text-slate-400">{p.title}</p></div></div></td>
                       <td className="px-5 py-3 font-medium text-slate-800">{p.project}</td>
                       <td className="px-5 py-3 text-slate-600">{p.customer}</td>
                       <td className="px-5 py-3 text-slate-600">{p.end}</td>
                       <td className="px-5 py-3"><span className={`text-sm font-bold ${daysLeft <= 14 ? 'text-rose-600' : daysLeft <= 30 ? 'text-amber-600' : 'text-slate-600'}`}>{daysLeft}d</span></td>
-                      <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${p.extensionLikelihood === 'Likely' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.extensionLikelihood === 'Unlikely' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{p.extensionLikelihood}</span></td>
-                      <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{s.name}</span>))}</div></td>
+                      <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${p.extensionLikelihood === 'Likely' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.extensionLikelihood === 'Unlikely' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{p.extensionLikelihood}</span></td>
+                      <td className="px-5 py-3"><div className="flex flex-wrap gap-1">{p.skills.slice(0, 3).map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">{s.name}</span>))}</div></td>
                     </tr>
                   );
                 })}
@@ -997,7 +997,7 @@ export default function CaliberateApp() {
   // ============================================================
   const renderOpenings = () => (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">{role === 'Resource' ? 'Internal Openings — Apply Now' : 'Talent Marketplace'}</h1><p className="text-xs text-slate-500">Active project openings with skills-based match scoring.</p></div>
         {(privileged || role === 'Manager') && (
           <button onClick={() => setActiveModal({ type: 'post-job' })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-teal-800">
@@ -1032,25 +1032,25 @@ export default function CaliberateApp() {
               </div>
               <p className="mt-2 text-xs text-slate-600 leading-relaxed">{j.description}</p>
               <div className="mt-3 flex flex-wrap gap-1">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase mr-1">Must Have:</span>
-                {j.mustHave.map(s => (<span key={s} className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${match?.matchedMust?.includes(s) ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>{s}</span>))}
-                {j.niceToHave.length > 0 && (<><span className="text-[10px] font-semibold text-slate-400 uppercase ml-2 mr-1">Nice:</span>{j.niceToHave.map(s => (<span key={s} className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${match?.matchedNice?.includes(s) ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{s}</span>))}</>)}
+                <span className="text-xs font-semibold text-slate-400 uppercase mr-1">Must Have:</span>
+                {j.mustHave.map(s => (<span key={s} className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${match?.matchedMust?.includes(s) ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>{s}</span>))}
+                {j.niceToHave.length > 0 && (<><span className="text-xs font-semibold text-slate-400 uppercase ml-2 mr-1">Nice:</span>{j.niceToHave.map(s => (<span key={s} className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${match?.matchedNice?.includes(s) ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>{s}</span>))}</>)}
               </div>
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {j.start} → {j.end}</span>
                   <span>{j.positions} position{j.positions > 1 ? 's' : ''}</span>
                   <span>{j.location}</span>
                 </div>
                 {role === 'Resource' && (
-                  <button disabled={hasApplied} onClick={() => handlers.apply(j, currentResourcePerson)} className={`rounded-lg px-3 py-1 text-[11px] font-bold transition ${hasApplied ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-teal-700 text-white hover:bg-teal-800'}`}>{hasApplied ? 'Already Applied' : 'Apply Now'}</button>
+                  <button disabled={hasApplied} onClick={() => handlers.apply(j, currentResourcePerson)} className={`rounded-lg px-3 py-1 text-xs font-bold transition ${hasApplied ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-teal-700 text-white hover:bg-teal-800'}`}>{hasApplied ? 'Already Applied' : 'Apply Now'}</button>
                 )}
                 {(role === 'Admin' || role === 'Operations' || role === 'Manager') && matchPerson && (
                   <div className="flex gap-1.5">
                     {(role === 'Admin' || role === 'Operations') && (
-                      <button onClick={() => setActiveModal({ type: 'allocate', data: { ...matchPerson, project: j.project, customer: j.customer, start: j.start, end: j.end } })} className="rounded-lg bg-teal-700 px-3 py-1 text-[11px] font-bold text-white hover:bg-teal-800">Direct Allocate</button>
+                      <button onClick={() => setActiveModal({ type: 'allocate', data: { ...matchPerson, project: j.project, customer: j.customer, start: j.start, end: j.end } })} className="rounded-lg bg-teal-700 px-3 py-1 text-xs font-bold text-white hover:bg-teal-800">Direct Allocate</button>
                     )}
-                    <button disabled={hasApplied} onClick={() => handlers.apply(j, matchPerson, 'Proposed by Operations', 'Shortlisted')} className={`rounded-lg border px-3 py-1 text-[11px] font-semibold ${hasApplied ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>{hasApplied ? 'Proposed' : 'Propose'}</button>
+                    <button disabled={hasApplied} onClick={() => handlers.apply(j, matchPerson, 'Proposed by Operations', 'Shortlisted')} className={`rounded-lg border px-3 py-1 text-xs font-semibold ${hasApplied ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}>{hasApplied ? 'Proposed' : 'Propose'}</button>
                   </div>
                 )}
               </div>
@@ -1068,7 +1068,7 @@ export default function CaliberateApp() {
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Staffing Requests Queue</h1><p className="text-xs text-slate-500">Manager-initiated allocation & deployment requests awaiting Operations review.</p></div>
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr><th className="px-5 py-3.5">Requested By</th><th className="px-5 py-3.5">Resource</th><th className="px-5 py-3.5">Project</th><th className="px-5 py-3.5">Dates</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5">Reason</th>{privileged && <th className="px-5 py-3.5">Actions</th>}</tr>
@@ -1080,14 +1080,14 @@ export default function CaliberateApp() {
                   <td className="px-5 py-3">{r.personName}</td>
                   <td className="px-5 py-3">{r.project} · {r.customer}</td>
                   <td className="px-5 py-3 text-slate-500">{r.start} → {r.end}</td>
-                  <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${r.status.includes('Pending') ? 'bg-amber-50 text-amber-700 border-amber-200' : r.status.includes('Approved') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{r.status}</span></td>
-                  <td className="px-5 py-3 text-slate-500 max-w-xs truncate">{r.reason}{r.rejectionReason ? <span className="block text-[10px] text-rose-600">Rejected: {r.rejectionReason}</span> : null}</td>
+                  <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${r.status.includes('Pending') ? 'bg-amber-50 text-amber-700 border-amber-200' : r.status.includes('Approved') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{r.status}</span></td>
+                  <td className="px-5 py-3 text-slate-500 max-w-xs truncate">{r.reason}{r.rejectionReason ? <span className="block text-xs text-rose-600">Rejected: {r.rejectionReason}</span> : null}</td>
                   {privileged && (
                     <td className="px-5 py-3">
                       {r.status.includes('Pending') && (
                         <div className="flex gap-1">
-                          <button onClick={() => handlers.reviewRequest(r, 'Approved')} className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button>
-                          <button onClick={() => { const reason = window.prompt('Enter rejection reason:'); if (reason !== null) handlers.reviewRequest(r, 'Rejected', reason.trim()); }} className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
+                          <button onClick={() => handlers.reviewRequest(r, 'Approved')} className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button>
+                          <button onClick={() => { const reason = window.prompt('Enter rejection reason:'); if (reason !== null) handlers.reviewRequest(r, 'Rejected', reason.trim()); }} className="rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
                         </div>
                       )}
                     </td>
@@ -1112,8 +1112,8 @@ export default function CaliberateApp() {
     return (
       <div className="space-y-6">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">My Profile</h1><p className="text-xs text-slate-500">Your deployment status, verified skills, and career preferences.</p></div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="xl:col-span-8 space-y-6">
             {/* Profile Header */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
               <div className="flex items-start gap-4">
@@ -1153,7 +1153,7 @@ export default function CaliberateApp() {
                   <div key={s.name} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold text-slate-800">{s.name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${s.level === 'Expert' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : s.level === 'Advanced' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.level}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${s.level === 'Expert' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : s.level === 'Advanced' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.level}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-slate-500">{s.years} yrs · Last: {s.lastUsed}</span>
@@ -1179,7 +1179,7 @@ export default function CaliberateApp() {
                       <p className="text-xs text-slate-500">{c.issuer} · Expires: {c.expiry}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      {c.verified && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>}
+                      {c.verified && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>}
                       <button onClick={() => handlers.removeCert(person, idx)} title="Remove certification" className="text-slate-400 hover:text-rose-600"><X className="h-4 w-4" /></button>
                     </div>
                   </div>
@@ -1213,7 +1213,7 @@ export default function CaliberateApp() {
           </div>
 
           {/* Right Column: Completeness */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="xl:col-span-4 space-y-6">
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
               <h3 className="text-base font-bold text-slate-900 font-heading">Profile Completeness</h3>
               <div className="mt-4 flex items-center justify-center">
@@ -1259,7 +1259,7 @@ export default function CaliberateApp() {
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">My Applications</h1><p className="text-xs text-slate-500">Track your marketplace job application statuses.</p></div>
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr><th className="px-5 py-3.5">Job Title</th><th className="px-5 py-3.5">Project</th><th className="px-5 py-3.5">Applied Date</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5">Notes</th><th className="px-5 py-3.5"></th></tr>
@@ -1273,7 +1273,7 @@ export default function CaliberateApp() {
                     <td className="px-5 py-3 font-medium text-slate-800">{job?.title || '—'}</td>
                     <td className="px-5 py-3 text-slate-600">{job?.project || '—'} · {job?.customer || ''}</td>
                     <td className="px-5 py-3 text-slate-500">{a.date}</td>
-                    <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${statusColors[a.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{a.status}</span></td>
+                    <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${statusColors[a.status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{a.status}</span></td>
                     <td className="px-5 py-3 text-slate-500">{a.notes}</td>
                     <td className="px-5 py-3 text-right">
                       {a.status !== 'Withdrawn' && a.status !== 'Selected' && (
@@ -1317,9 +1317,9 @@ export default function CaliberateApp() {
                   <p className="text-sm font-bold text-slate-900">{p.name}</p>
                   <p className="text-xs text-slate-500">{p.title} · {p.location}</p>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${p.status === 'Bench' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>{p.status === 'Bench' ? 'Available' : `From ${p.end || p.start}`}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${p.status === 'Bench' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>{p.status === 'Bench' ? 'Available' : `From ${p.end || p.start}`}</span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1">{p.skills.map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-medium text-teal-800">{s.name} ({s.level})</span>))}</div>
+              <div className="mt-3 flex flex-wrap gap-1">{p.skills.map(s => (<span key={s.name} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-medium text-teal-800">{s.name} ({s.level})</span>))}</div>
             </div>
           ))}
         </div>
@@ -1340,7 +1340,7 @@ export default function CaliberateApp() {
       <div className="space-y-6">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Supply vs Demand</h1><p className="text-xs text-slate-500">Resource availability against active project demand by practice.</p></div>
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                 <tr><th className="px-5 py-3.5">Practice</th><th className="px-5 py-3.5">Total</th><th className="px-5 py-3.5">Deployed</th><th className="px-5 py-3.5">On Bench</th><th className="px-5 py-3.5">Open Positions</th><th className="px-5 py-3.5">Supply Gap</th></tr>
@@ -1378,7 +1378,7 @@ export default function CaliberateApp() {
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div><h3 className="text-sm font-bold text-slate-900">{proj} — {customer}</h3><p className="text-xs text-slate-400">{ppl.length} resource{ppl.length > 1 ? 's' : ''} assigned</p></div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-500 font-semibold"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Allocation</th><th className="px-5 py-3">End Date</th><th className="px-5 py-3">Extension</th>{privileged && <th className="px-5 py-3 text-right">Actions</th>}</tr></thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1386,9 +1386,9 @@ export default function CaliberateApp() {
                       <tr key={p.id} className="hover:bg-slate-50/80 cursor-pointer" onClick={() => { setSelectedPersonForDrawer(p); setDrawerTab('allocations'); }}>
                         <td className="px-5 py-3 font-medium text-slate-800">{p.name}</td>
                         <td className="px-5 py-3 text-slate-600">{p.title}</td>
-                        <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${p.allocationPct === 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{p.allocationPct}%</span></td>
+                        <td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${p.allocationPct === 100 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{p.allocationPct}%</span></td>
                         <td className="px-5 py-3 text-slate-500">{p.end}</td>
-                        <td className="px-5 py-3"><span className={`text-[10px] font-semibold ${p.extensionLikelihood === 'Likely' ? 'text-emerald-600' : p.extensionLikelihood === 'Unlikely' ? 'text-rose-600' : 'text-slate-400'}`}>{p.extensionLikelihood}</span></td>
+                        <td className="px-5 py-3"><span className={`text-xs font-semibold ${p.extensionLikelihood === 'Likely' ? 'text-emerald-600' : p.extensionLikelihood === 'Unlikely' ? 'text-rose-600' : 'text-slate-400'}`}>{p.extensionLikelihood}</span></td>
                         {privileged && (
                           <td className="px-5 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                             <button onClick={() => setActiveModal({ type: 'allocate', data: p })} className="rounded-md bg-teal-50 px-2 py-1 font-semibold text-teal-700 hover:bg-teal-100">Edit</button>
@@ -1463,7 +1463,7 @@ export default function CaliberateApp() {
           <div className="space-y-2">
             {(settings.overrides || []).map(o => (
               <div key={o.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-                <div><span className="font-bold text-slate-800">{o.scopeName}</span><span className="block text-[10px] text-slate-400">{o.scope} override</span></div>
+                <div><span className="font-bold text-slate-800">{o.scopeName}</span><span className="block text-xs text-slate-400">{o.scope} override</span></div>
                 <div className="flex items-center gap-3 font-semibold">
                   <span className="text-amber-700">Amber {o.amber}d</span><span className="text-rose-700">Red {o.red}d</span><span className="text-rose-900">Critical {o.critical}d</span>
                   <button onClick={() => setActiveModal({ type: 'edit-override', data: o })} className="text-slate-400 hover:text-teal-700" title="Edit override"><Pencil className="h-3.5 w-3.5" /></button>
@@ -1486,8 +1486,8 @@ export default function CaliberateApp() {
             {auditLog.length === 0 && <p className="py-6 text-center text-slate-400">No audit entries.</p>}
             {auditLog.map(l => (
               <div key={l.id} className="py-2.5 flex items-center justify-between gap-4">
-                <div><p className="font-semibold text-slate-800">{l.action}: <span className="text-teal-700">{l.entity}</span></p><p className="text-[11px] text-slate-400">{l.detail}</p></div>
-                <div className="text-right text-[11px] text-slate-400 shrink-0"><span>{l.actor}</span><span className="block font-mono">{l.time}</span></div>
+                <div><p className="font-semibold text-slate-800">{l.action}: <span className="text-teal-700">{l.entity}</span></p><p className="text-xs text-slate-400">{l.detail}</p></div>
+                <div className="text-right text-xs text-slate-400 shrink-0"><span>{l.actor}</span><span className="block font-mono">{l.time}</span></div>
               </div>
             ))}
           </div>
@@ -1530,7 +1530,7 @@ export default function CaliberateApp() {
     const scheduler = ['TA', 'Admin', 'Operations', 'Manager'].includes(role);
     return (
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">External Hires</h1>
             <p className="text-xs text-slate-500">Raise external hire requests when no internal resource matches the requirement. Requests are approved by Admin/Operations.</p>
@@ -1549,12 +1549,12 @@ export default function CaliberateApp() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-bold text-slate-900">{r.jobTitle}</h3>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${externalStatusStyle(r.status)}`}>{r.status}</span>
-                    {r.candidateStatus && r.candidateName && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">{r.candidateStatus}</span>}
+                    <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${externalStatusStyle(r.status)}`}>{r.status}</span>
+                    {r.candidateStatus && r.candidateName && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">{r.candidateStatus}</span>}
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{r.customer} · {r.project} · {r.practice} · {r.location || 'Remote'}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(r.skills || []).map(s => <span key={s} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{s}</span>)}
+                    {(r.skills || []).map(s => <span key={s} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{s}</span>)}
                   </div>
                 </div>
                 <div className="text-right text-xs text-slate-500 shrink-0">
@@ -1564,27 +1564,27 @@ export default function CaliberateApp() {
                 </div>
               </div>
               <p className="mt-3 text-xs text-slate-600">{r.reason}</p>
-              {r.rejectionReason && <p className="mt-2 text-[11px] text-rose-600">Rejected: {r.rejectionReason}</p>}
+              {r.rejectionReason && <p className="mt-2 text-xs text-rose-600">Rejected: {r.rejectionReason}</p>}
               {r.candidateName && (
                 <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
                   <p className="font-semibold text-slate-800">{r.candidateName} <span className="text-slate-400">· {r.candidateEmail}</span></p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {(r.candidateSkills || []).map(s => <span key={s} className="rounded-md bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700">{s}</span>)}
+                    {(r.candidateSkills || []).map(s => <span key={s} className="rounded-md bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">{s}</span>)}
                   </div>
                 </div>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {canReview && r.status === 'Pending' && (
                   <>
-                    <button onClick={() => handlers.reviewExternal(r.id, 'Approved')} className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button>
-                    <button onClick={() => { const reason = window.prompt('Enter rejection reason:'); if (reason !== null) handlers.reviewExternal(r.id, 'Rejected', reason.trim()); }} className="rounded-md bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
+                    <button onClick={() => handlers.reviewExternal(r.id, 'Approved')} className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Approve</button>
+                    <button onClick={() => { const reason = window.prompt('Enter rejection reason:'); if (reason !== null) handlers.reviewExternal(r.id, 'Rejected', reason.trim()); }} className="rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100">Reject</button>
                   </>
                 )}
                 {(candidateEditable || (role === 'Manager' && r.manager === currentUser?.name)) && r.status === 'Approved' && (
-                  <button onClick={() => setActiveModal({ type: 'external-candidate', data: r })} className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100">Update Candidate</button>
+                  <button onClick={() => setActiveModal({ type: 'external-candidate', data: r })} className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100">Update Candidate</button>
                 )}
                 {scheduler && r.status === 'Approved' && r.candidateName && (
-                  <button onClick={() => setActiveModal({ type: 'schedule-interview', data: r })} className="rounded-md bg-purple-50 px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100">Schedule Interview</button>
+                  <button onClick={() => setActiveModal({ type: 'schedule-interview', data: r })} className="rounded-md bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100">Schedule Interview</button>
                 )}
               </div>
             </div>
@@ -1601,7 +1601,7 @@ export default function CaliberateApp() {
     const canManage = role === 'Admin';
     return (
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Interview Panels</h1>
             <p className="text-xs text-slate-500">Available interviewers, their interview skills, and weekly availability slots.</p>
@@ -1619,7 +1619,7 @@ export default function CaliberateApp() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sm font-bold text-sky-700">{panel.name.split(' ').map(s => s[0]).join('').slice(0, 2)}</div>
-                  <div><p className="font-bold text-slate-900">{panel.name}</p><p className="text-[11px] text-slate-400">Interview Panel Member</p></div>
+                  <div><p className="font-bold text-slate-900">{panel.name}</p><p className="text-xs text-slate-400">Interview Panel Member</p></div>
                 </div>
                 {canManage && (
                   <div className="flex gap-1">
@@ -1629,27 +1629,27 @@ export default function CaliberateApp() {
                 )}
               </div>
               <div className="mt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Interview Skills</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Interview Skills</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {(panel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 border border-sky-100">{s}</span>)}
-                  {(panel.skills || []).length === 0 && <span className="text-[11px] text-slate-400">No skills configured</span>}
+                  {(panel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 border border-sky-100">{s}</span>)}
+                  {(panel.skills || []).length === 0 && <span className="text-xs text-slate-400">No skills configured</span>}
                 </div>
               </div>
               <div className="mt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Domains</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Domains</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {(panel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
-                  {(panel.domains || []).length === 0 && <span className="text-[11px] text-slate-400">No domains selected</span>}
+                  {(panel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
+                  {(panel.domains || []).length === 0 && <span className="text-xs text-slate-400">No domains selected</span>}
                 </div>
               </div>
               <div className="mt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Availability Slots (1h)</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Availability Slots (1h)</p>
                 <div className="mt-1 space-y-1">
                   {(panel.timeSlots || []).slice(0, 8).map((slot, i) => (
-                    <p key={i} className="text-[11px] text-slate-600"><span className="font-semibold">{slot.date}</span> · {slot.time}</p>
+                    <p key={i} className="text-xs text-slate-600"><span className="font-semibold">{slot.date}</span> · {slot.time}</p>
                   ))}
-                  {(panel.timeSlots || []).length > 8 && <span className="text-[10px] text-slate-400">+{(panel.timeSlots || []).length - 8} more</span>}
-                  {(panel.timeSlots || []).length === 0 && <span className="text-[11px] text-slate-400">No slots configured</span>}
+                  {(panel.timeSlots || []).length > 8 && <span className="text-xs text-slate-400">+{(panel.timeSlots || []).length - 8} more</span>}
+                  {(panel.timeSlots || []).length === 0 && <span className="text-xs text-slate-400">No slots configured</span>}
                 </div>
               </div>
             </div>
@@ -1703,7 +1703,7 @@ export default function CaliberateApp() {
       .filter(r => !Number.isNaN(r.top) && r.top >= 0 && days.some(d => d.date === r.date));
     return (
       <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Interview Roster</h1>
             <p className="text-xs text-slate-500">Interview schedule that blocks panel member time. Panel skills must match the job requirements.</p>
@@ -1722,7 +1722,7 @@ export default function CaliberateApp() {
             { label: 'Cancelled', value: roster.filter(r => r.status === 'Cancelled').length, tone: 'text-rose-700' }
           ].map(s => (
             <div key={s.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
               <p className={`mt-1 text-2xl font-extrabold font-heading ${s.tone}`}>{s.value}</p>
             </div>
           ))}
@@ -1731,24 +1731,24 @@ export default function CaliberateApp() {
           <button onClick={() => setRosterWeekOffset(0)} className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${rosterWeekOffset === 0 ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>Current Week</button>
           <button onClick={() => setRosterWeekOffset(1)} className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${rosterWeekOffset === 1 ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>Next Week</button>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs overflow-x-auto">
+        <div className="roster-scroll rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs overflow-x-auto" tabIndex={0} role="region" aria-label="Weekly interview calendar, scroll horizontally to see all days">
           <div className="min-w-[920px]">
             <div className="grid grid-cols-[3rem_repeat(5,1fr)] gap-1">
               <div />
-              {days.map(d => <div key={d.date} className="text-center text-[10px] font-bold text-slate-600">{d.label} <span className="text-slate-400">{d.day}</span></div>)}
+              {days.map(d => <div key={d.date} className="text-center text-xs font-bold text-slate-600">{d.label} <span className="text-slate-400">{d.day}</span></div>)}
             </div>
             <div className="grid grid-cols-[3rem_repeat(5,1fr)] gap-1 mt-1">
-              <div className="text-right text-[10px] text-slate-400">
-                {hourLabels.map(t => <div key={t} style={{ height: 48 }} className="flex items-start justify-end pt-0.5 border-t border-slate-100">{t}</div>)}
+              <div className="text-right text-xs text-slate-400">
+                {hourLabels.map(t => <div key={t} style={{ height: '3rem' }} className="flex items-start justify-end pt-0.5 border-t border-slate-100">{t}</div>)}
               </div>
               {days.map(d => (
-                <div key={d.date} className="relative rounded-lg bg-slate-50/50" style={{ height: 10 * 48 }}>
-                  {hourLabels.map(t => <div key={t} style={{ height: 48 }} className="border-t border-slate-100" />)}
+                <div key={d.date} className="relative rounded-lg bg-slate-50/50" style={{ height: '30rem' }}>
+                  {hourLabels.map(t => <div key={t} style={{ height: '3rem' }} className="border-t border-slate-100" />)}
                   {weekItems.filter(item => item.date === d.date).map(item => (
                     <div
                       key={item.id}
-                      className="absolute left-1 right-1 z-10 overflow-hidden rounded-md px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-xs cursor-pointer"
-                      style={{ top: item.top, height: item.height, background: item.status === 'Completed' ? '#64748b' : item.status === 'Rescheduled' ? '#3b82f6' : '#7c3aed' }}
+                      className="roster-event absolute left-1 right-1 z-10 overflow-hidden rounded-md px-1.5 py-0.5 text-xs font-semibold text-white shadow-xs cursor-pointer"
+                      style={{ top: `${item.top / 16}rem`, height: `${item.height / 16}rem`, background: item.status === 'Completed' ? '#64748b' : item.status === 'Rescheduled' ? '#3b82f6' : '#7c3aed' }}
                       title={`${item.candidateName} · R${item.roundNumber} · ${item.panelName}`}
                     >
                       <p className="truncate">{item.candidateName}</p>
@@ -1761,7 +1761,7 @@ export default function CaliberateApp() {
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                 <tr>
@@ -1779,13 +1779,13 @@ export default function CaliberateApp() {
                 {roster.length === 0 && <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No interviews scheduled.</td></tr>}
                 {roster.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/80">
-                    <td className="px-5 py-3"><p className="font-semibold text-slate-800">{item.candidateName}</p><p className="text-[11px] text-slate-400">{item.jobTitle}</p></td>
+                    <td className="px-5 py-3"><p className="font-semibold text-slate-800">{item.candidateName}</p><p className="text-xs text-slate-400">{item.jobTitle}</p></td>
                     <td className="px-5 py-3 text-slate-700">{item.panelName}</td>
                     <td className="px-5 py-3"><span className="font-semibold text-slate-700">R{item.roundNumber}</span>{item.level ? <span className="text-slate-400"> · {item.level}</span> : null}</td>
                     <td className="px-5 py-3 text-slate-600">{item.interviewType}</td>
                     <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
                     <td className="px-5 py-3 text-slate-600">{item.durationMinutes}m</td>
-                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
+                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
                     {isTA && (
                       <td className="px-5 py-3 text-right whitespace-nowrap">
                         {item.status !== 'Completed' && item.status !== 'Cancelled' && (
@@ -1840,7 +1840,7 @@ export default function CaliberateApp() {
             <div className="grid grid-cols-3 gap-3">
               {stats.map(s => (
                 <div key={s.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{s.label}</p>
                   <p className={`mt-1 text-2xl font-extrabold font-heading ${s.tone}`}>{s.value}</p>
                 </div>
               ))}
@@ -1851,17 +1851,17 @@ export default function CaliberateApp() {
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900">Skills I can interview</h3>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {(myPanel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-100">{s}</span>)}
+              {(myPanel.skills || []).map(s => <span key={s} className="rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-700 border border-sky-100">{s}</span>)}
               {(myPanel.skills || []).length === 0 && <span className="text-xs text-slate-400">No skills configured.</span>}
             </div>
-            <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Domains</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-wider text-slate-400">Domains</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {(myPanel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
+              {(myPanel.domains || []).map(d => <span key={d} className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-100">{d}</span>)}
               {(myPanel.domains || []).length === 0 && <span className="text-xs text-slate-400">No domains selected.</span>}
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900">Available time slots (1h)</h3>{(myPanel.recurringSlots || []).length > 0 && <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700">Repeats weekly</span>}</div>
+            <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900">Available time slots (1h)</h3>{(myPanel.recurringSlots || []).length > 0 && <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-bold text-teal-700">Repeats weekly</span>}</div>
             <div className="mt-3 space-y-2.5">
               {(() => {
                 const byDate = {};
@@ -1871,8 +1871,8 @@ export default function CaliberateApp() {
                 const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 return dates.map(date => (
                   <div key={date} className="flex items-start gap-3">
-                    <div className="w-16 shrink-0 text-[11px] font-bold text-slate-700">{wd[new Date(`${date}T00:00:00`).getDay()]} <span className="font-medium text-slate-400">{date.slice(5)}</span></div>
-                    <div className="flex flex-wrap gap-1">{byDate[date].sort().map(time => <span key={time} className="rounded-md border border-teal-100 bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700">{time}</span>)}</div>
+                    <div className="w-16 shrink-0 text-xs font-bold text-slate-700">{wd[new Date(`${date}T00:00:00`).getDay()]} <span className="font-medium text-slate-400">{date.slice(5)}</span></div>
+                    <div className="flex flex-wrap gap-1">{byDate[date].sort().map(time => <span key={time} className="rounded-md border border-teal-100 bg-teal-50 px-1.5 py-0.5 text-xs font-semibold text-teal-700">{time}</span>)}</div>
                   </div>
                 ));
               })()}
@@ -1896,7 +1896,7 @@ export default function CaliberateApp() {
           <p className="text-xs text-slate-500">Interviews where your time is blocked as a panel member. <span className="font-semibold text-purple-700">{upcomingCount} upcoming</span> · {own.length} total.</p>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                 <tr><th className="px-5 py-3.5">Candidate</th><th className="px-5 py-3.5">Role</th><th className="px-5 py-3.5">Round</th><th className="px-5 py-3.5">Type</th><th className="px-5 py-3.5">Scheduled</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Actions</th></tr>
@@ -1910,7 +1910,7 @@ export default function CaliberateApp() {
                     <td className="px-5 py-3 text-slate-700">R{item.roundNumber}{item.level ? ` · ${item.level}` : ''}</td>
                     <td className="px-5 py-3 text-slate-600">{item.interviewType}</td>
                     <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
-                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
+                    <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
                     <td className="px-5 py-3 text-right">
                       {item.status !== 'Cancelled' && item.status !== 'Completed' && (
                         <button onClick={() => { if (window.confirm(`Cancel your interview with ${item.candidateName} on ${item.scheduledAt}?`)) handlers.updateInterview(item.id, { status: 'Cancelled' }); }} className="rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100">Cancel</button>
@@ -1931,7 +1931,7 @@ export default function CaliberateApp() {
   // ============================================================
   const renderUsers = () => (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Users &amp; Access</h1>
           <p className="text-xs text-slate-500">Provision accounts, assign roles, and revoke access. Passwords must be at least 12 characters with mixed case, a number, and a symbol.</p>
@@ -1941,7 +1941,7 @@ export default function CaliberateApp() {
         </button>
       </div>
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr>
@@ -1959,14 +1959,14 @@ export default function CaliberateApp() {
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700">{user.name.split(' ').map(s => s[0]).join('').slice(0, 2)}</div>
-                      <div><p className="font-semibold text-slate-800">{user.name}{user.id === currentUser?.id ? ' (you)' : ''}</p><p className="text-[11px] text-slate-400">{user.email}</p></div>
+                      <div><p className="font-semibold text-slate-800">{user.name}{user.id === currentUser?.id ? ' (you)' : ''}</p><p className="text-xs text-slate-400">{user.email}</p></div>
                     </div>
                   </td>
-                  <td className="px-5 py-3"><span className="rounded-md bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-800 border border-teal-200">{user.role}</span></td>
+                  <td className="px-5 py-3"><span className="rounded-md bg-teal-50 px-2 py-0.5 text-xs font-bold text-teal-800 border border-teal-200">{user.role}</span></td>
                   <td className="px-5 py-3 text-slate-600">{user.department || '—'}</td>
                   <td className="px-5 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${user.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{user.active ? 'Active' : 'Inactive'}</span>
-                    {user.mustChangePassword && <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">Password reset pending</span>}
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${user.active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{user.active ? 'Active' : 'Inactive'}</span>
+                    {user.mustChangePassword && <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">Password reset pending</span>}
                   </td>
                   <td className="px-5 py-3 text-slate-500">{user.lastLoginAt || 'Never'}</td>
                   <td className="px-5 py-3 text-right whitespace-nowrap">
@@ -1995,7 +1995,7 @@ export default function CaliberateApp() {
     return (
       <div className="fixed inset-0 z-50 flex justify-end">
         <div className="absolute inset-0 bg-black/30" onClick={() => setSelectedPersonForDrawer(null)} />
-        <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
+        <div className="person-drawer relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto">
           <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-700 to-emerald-600 text-sm font-bold text-white">{person.name.split(' ').map(s => s[0]).join('')}</div>
@@ -2022,10 +2022,10 @@ export default function CaliberateApp() {
                     { label: 'Type', value: person.type },
                     { label: 'Profile', value: `${pct}% complete` }
                   ].map(f => (
-                    <div key={f.label} className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-400 uppercase">{f.label}</p><p className="text-xs font-semibold text-slate-800 mt-0.5">{f.value}</p></div>
+                    <div key={f.label} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-400 uppercase">{f.label}</p><p className="text-xs font-semibold text-slate-800 mt-0.5">{f.value}</p></div>
                   ))}
                 </div>
-                {person.experience && <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Experience</p><p className="text-xs text-slate-700">{person.experience}</p></div>}
+                {person.experience && <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-400 uppercase mb-1">Experience</p><p className="text-xs text-slate-700">{person.experience}</p></div>}
               </>
             )}
             {drawerTab === 'allocations' && (
@@ -2055,7 +2055,7 @@ export default function CaliberateApp() {
               <div className="space-y-3">
                 {person.skills.map(s => (
                   <div key={s.name} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-                    <div className="flex items-center gap-2"><span className="text-sm font-semibold text-slate-800">{s.name}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${s.level === 'Expert' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : s.level === 'Advanced' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.level}</span></div>
+                    <div className="flex items-center gap-2"><span className="text-sm font-semibold text-slate-800">{s.name}</span><span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${s.level === 'Expert' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : s.level === 'Advanced' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{s.level}</span></div>
                     <span className="text-xs text-slate-500">{s.years}y</span>
                   </div>
                 ))}
@@ -2063,7 +2063,7 @@ export default function CaliberateApp() {
                   <>
                     <p className="text-xs font-semibold text-slate-500 uppercase mt-4">Certifications</p>
                     {person.certs.map(c => (
-                      <div key={c.name} className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-semibold text-slate-800">{c.name}</p><p className="text-[11px] text-slate-500">{c.issuer} · Exp: {c.expiry}</p></div>
+                      <div key={c.name} className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-semibold text-slate-800">{c.name}</p><p className="text-xs text-slate-500">{c.issuer} · Exp: {c.expiry}</p></div>
                     ))}
                   </>
                 )}
@@ -2084,7 +2084,7 @@ export default function CaliberateApp() {
                   </form>
                 )}
                 {person.notes?.length > 0 ? person.notes.map((n, i) => (
-                  <div key={i} className="rounded-xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between text-[11px] text-slate-400"><span className="font-medium">{n.author}</span><span>{n.date}</span></div><p className="text-xs text-slate-700 mt-1">{n.text}</p></div>
+                  <div key={i} className="rounded-xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between text-xs text-slate-400"><span className="font-medium">{n.author}</span><span>{n.date}</span></div><p className="text-xs text-slate-700 mt-1">{n.text}</p></div>
                 )) : <p className="text-center text-xs text-slate-400 py-8">No notes recorded.</p>}
               </div>
             )}
@@ -2098,36 +2098,40 @@ export default function CaliberateApp() {
   //  MAIN LAYOUT
   // ============================================================
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
+    <div className="workspace flex h-dvh overflow-hidden bg-slate-50 text-slate-800">
+      <a className="skip-link" href="#workspace-content">Skip to content</a>
       {/* Mobile navigation overlay */}
       {mobileNavOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileNavOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setMobileNavOpen(false)} />
       )}
 
       {/* SIDEBAR */}
-      <aside className={`${mobileNavOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:static md:flex`}>
+      <aside id="workspace-navigation" aria-label="Workspace navigation" className={`workspace-sidebar ${mobileNavOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:static lg:flex`}>
         <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-700 to-emerald-600 text-white shadow-md shadow-teal-700/20"><Layers className="h-5 w-5" /></div>
-          <div><span className="text-xl font-extrabold tracking-tight text-slate-900 font-heading">Caliber<span className="text-teal-600">ate</span></span><span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Resource Intelligence</span></div>
-          <button onClick={() => setMobileNavOpen(false)} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 md:hidden"><X className="h-4 w-4" /></button>
+          <div><span className="text-xl font-extrabold tracking-tight text-slate-900 font-heading">Caliber<span className="text-teal-600">ate</span></span><span className="block text-xs font-semibold uppercase tracking-wider text-slate-400">Resource Intelligence</span></div>
+          <button aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden"><X className="h-4 w-4" /></button>
         </div>
         <div className="mx-3 mt-3 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
-          <div className="flex items-center justify-between"><span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Logged In As</span><span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">{currentUser?.role}</span></div>
+          <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Logged In As</span><span className="rounded-md bg-teal-100 px-1.5 py-0.5 text-xs font-bold text-teal-800">{currentUser?.role}</span></div>
           <div className="mt-2 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">{currentUser?.avatar}</div>
-            <div className="truncate text-xs flex-1"><p className="font-semibold text-slate-800 truncate">{currentUser?.name}</p><p className="text-[10px] text-slate-400 truncate">{currentUser?.email}</p></div>
+            <div className="truncate text-xs flex-1"><p className="font-semibold text-slate-800 truncate">{currentUser?.name}</p><p className="text-xs text-slate-400 truncate">{currentUser?.email}</p></div>
           </div>
         </div>
-        <div className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Workspace</div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-          {navigationItems.map(item => {
+        <div className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Workspace</div>
+        <nav aria-label="Main navigation" className="flex-1 space-y-1 overflow-y-auto px-3">
+          {navigationItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = activePage === item.id;
             return (
-              <button key={item.id} onClick={() => { setPage(item.id); setSearchQuery(''); setMobileNavOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-teal-50 text-teal-800 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
+              <React.Fragment key={item.id}>
+              {(!restrictedRole && role !== 'Resource' && role !== 'Sales') && ({ 0: 'Overview', 5: 'Talent & hiring', 10: 'Insights & administration' })[index] && <p className="nav-group-label">{({ 0: 'Overview', 5: 'Talent & hiring', 10: 'Insights & administration' })[index]}</p>}
+              <button aria-current={isActive ? 'page' : undefined} onClick={() => { setPage(item.id); setSearchQuery(''); setMobileNavOpen(false); }} className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-teal-50 text-teal-800 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
                 <div className="flex items-center gap-3"><Icon className={`h-4 w-4 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} /><span>{item.label}</span></div>
-                {item.badge !== undefined && item.badge > 0 && (<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-100 px-1.5 text-[11px] font-bold text-rose-700">{item.badge}</span>)}
+                {item.badge !== undefined && item.badge > 0 && (<span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-100 px-1.5 text-xs font-bold text-rose-700">{item.badge}</span>)}
               </button>
+              </React.Fragment>
             );
           })}
         </nav>
@@ -2138,35 +2142,35 @@ export default function CaliberateApp() {
           <button onClick={logout} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/60 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
             <LogOut className="h-3.5 w-3.5" /><span>Sign Out ({currentUser?.name?.split(' ')[0]})</span>
           </button>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v1.1.0</span></div>
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v1.5.0</span></div>
         </div>
       </aside>
 
       {/* MAIN */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* HEADER — NO "View As" DROPDOWN */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
+        <header className="workspace-header flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <button onClick={() => setMobileNavOpen(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:hidden" title="Open navigation"><Menu className="h-5 w-5" /></button>
-            <span className="font-semibold text-slate-900 font-heading">Caliberate</span>
-            <ChevronRight className="h-4 w-4 text-slate-300" />
+            <button onClick={() => setMobileNavOpen(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" title="Open navigation" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen}><Menu className="h-5 w-5" /></button>
+            <span className="hidden lg:inline font-medium text-slate-500">Workspace</span>
+            <ChevronRight className="hidden lg:block h-4 w-4 text-slate-300" />
             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{navigationItems.find(i => i.id === activePage)?.label || activePage}</span>
-            {role === 'Manager' && (<span className="ml-2 hidden text-xs text-teal-700 sm:inline-flex items-center gap-1 bg-teal-50 px-2 py-0.5 rounded-md font-medium"><Building className="h-3 w-3" /> Digital Practice (Rachel Shah)</span>)}
+            {role === 'Manager' && (<span className="ml-2 hidden text-xs text-teal-700 xl:inline-flex items-center gap-1 bg-teal-50 px-2 py-0.5 rounded-md font-medium"><Building className="h-3 w-3" /> Digital Practice (Rachel Shah)</span>)}
           </div>
           <div className="flex items-center gap-3">
             {/* Notification bell */}
             <div className="relative">
-              <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition" title="Alerts and Notifications">
+              <button onClick={() => setNotificationPanelOpen(!notificationPanelOpen)} className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition" title="Alerts and Notifications" aria-label="Alerts and notifications" aria-expanded={notificationPanelOpen} aria-controls="notifications-panel">
                 <Bell className="h-5 w-5" />
                 {(notifications.some(n => !n.read) || (!restrictedRole && (metrics.redFlagsCount > 0 || metrics.rolloffs30d.length > 0 || metrics.expiringCerts.length > 0))) && (<span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />)}
               </button>
               {notificationPanelOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50">
+                <div id="notifications-panel" className="notifications-panel absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2 font-semibold text-sm"><Bell className="h-4 w-4 text-teal-600" /><span>Notifications</span>{notifications.some(n => !n.read) ? <span className="rounded-full bg-rose-100 px-1.5 text-[10px] font-bold text-rose-700">{notifications.filter(n => !n.read).length}</span> : null}</div>
+                    <div className="flex items-center gap-2 font-semibold text-sm"><Bell className="h-4 w-4 text-teal-600" /><span>Notifications</span>{notifications.some(n => !n.read) ? <span className="rounded-full bg-rose-100 px-1.5 text-xs font-bold text-rose-700">{notifications.filter(n => !n.read).length}</span> : null}</div>
                     <div className="flex items-center gap-1">
-                      {notifications.some(n => !n.read) && <button onClick={handlers.markAllNotificationsRead} className="text-[10px] font-bold text-teal-700 hover:underline">Mark all read</button>}
-                      <button onClick={() => setNotificationPanelOpen(false)} className="rounded-md p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+                      {notifications.some(n => !n.read) && <button onClick={handlers.markAllNotificationsRead} className="text-xs font-bold text-teal-700 hover:underline">Mark all read</button>}
+                      <button aria-label="Close notifications" onClick={() => setNotificationPanelOpen(false)} className="rounded-md p-1 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
                     </div>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs py-2">
@@ -2176,10 +2180,10 @@ export default function CaliberateApp() {
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-teal-100 text-teal-700"><Calendar className="h-3.5 w-3.5" /></span>
                         <div className="flex-1">
                           <p className="font-semibold text-slate-800">{n.title}</p>
-                          <p className="text-[11px] text-slate-500">{n.body}</p>
-                          <p className="mt-0.5 text-[10px] text-slate-400">{n.createdAt}</p>
+                          <p className="text-xs text-slate-500">{n.body}</p>
+                          <p className="mt-0.5 text-xs text-slate-400">{n.createdAt}</p>
                         </div>
-                        {!n.read && <button onClick={() => handlers.markNotificationRead(n.id)} className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 hover:bg-slate-200">Read</button>}
+                        {!n.read && <button onClick={() => handlers.markNotificationRead(n.id)} className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-200">Read</button>}
                       </div>
                     ))}
                     {!restrictedRole && metrics.redFlagsCount > 0 && (
@@ -2200,14 +2204,14 @@ export default function CaliberateApp() {
             </div>
             {/* Profile pill & Sign Out */}
             <div className="flex items-center gap-2">
-              <button onClick={() => setPasswordModalOpen(true)} className="hidden sm:flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50" title="Change password">
+              <button onClick={() => setPasswordModalOpen(true)} className="hidden sm:flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50" title="Change password" aria-label="Change password">
                 <KeyRound className="h-3.5 w-3.5" />
               </button>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white pl-1.5 pr-3 py-1 cursor-pointer hover:bg-slate-50 transition">
+              <div className="header-profile flex items-center gap-2 rounded-full border border-slate-200 bg-white pl-1.5 pr-3 py-1">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-700 text-xs font-bold text-white">{currentUser?.avatar}</span>
                 <span className="text-xs font-semibold text-slate-700">{currentUser?.name}</span>
               </div>
-              <button onClick={logout} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition" title="Sign Out to Login Page">
+              <button onClick={logout} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition" title="Sign Out to Login Page" aria-label="Sign out">
                 <LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sign Out</span>
               </button>
             </div>
@@ -2215,7 +2219,7 @@ export default function CaliberateApp() {
         </header>
 
         {/* PAGE BODY */}
-        <main className="flex-1 overflow-y-auto bg-slate-50/60 p-5 lg:p-8">
+        <main id="workspace-content" tabIndex={-1} className="workspace-content flex-1 overflow-y-auto p-5 lg:p-8">
           <div className="mx-auto max-w-7xl space-y-6">
             {activePage === 'Dashboard' && renderDashboard()}
             {activePage === 'Employees' && renderEmployees()}
@@ -2266,7 +2270,7 @@ export default function CaliberateApp() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-semibold shadow-lg ${toast.type === 'success' ? 'bg-emerald-700 text-white' : 'bg-rose-700 text-white'}`}>
+        <div role={toast.type === 'success' ? 'status' : 'alert'} className={`workspace-toast fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-semibold shadow-lg ${toast.type === 'success' ? 'bg-emerald-700 text-white' : 'bg-rose-700 text-white'}`}>
           {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
           <span>{toast.message}</span>
         </div>

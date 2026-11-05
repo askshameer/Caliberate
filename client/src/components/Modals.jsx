@@ -78,22 +78,22 @@ function SlotPicker({ slotKeys, onToggle }) {
   const renderWeek = (week) => {
     const todayKey = toDateKey(new Date());
     return (
-      <div className="overflow-hidden rounded-lg border border-slate-200">
+      <div className="slot-picker-scroll overflow-x-auto rounded-lg border border-slate-200" tabIndex={0} role="region" aria-label="Interview availability, scroll horizontally to see all days">
         <div className="grid grid-cols-[3.5rem_repeat(5,1fr)] bg-slate-50 border-b border-slate-200">
-          <div className="px-1.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">Start time</div>
+          <div className="px-1.5 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">Start time</div>
           {week.map(date => {
             const d = new Date(`${date}T00:00:00`);
             return (
               <div key={date} className="px-1 py-1.5 text-center">
-                <p className="text-[9px] font-bold text-slate-600">{WEEKDAY_LABELS[d.getDay()]}</p>
-                <p className={`text-[9px] ${date === todayKey ? 'font-bold text-teal-700' : 'text-slate-400'}`}>{date.slice(5)}</p>
+                <p className="text-xs font-bold text-slate-600">{WEEKDAY_LABELS[d.getDay()]}</p>
+                <p className={`text-xs ${date === todayKey ? 'font-bold text-teal-700' : 'text-slate-400'}`}>{date.slice(5)}</p>
               </div>
             );
           })}
         </div>
         {HOUR_STARTS.map(time => (
           <div key={time} className="grid grid-cols-[3.5rem_repeat(5,1fr)] border-t border-slate-100 first:border-t-0">
-            <div className={`px-1.5 py-1 text-[10px] font-semibold flex items-center justify-end pr-1.5 ${week.every(date => isPastSlot(date, time)) ? 'text-slate-300' : 'text-slate-500'}`}>{time}</div>
+            <div className={`px-1.5 py-1 text-xs font-semibold flex items-center justify-end pr-1.5 ${week.every(date => isPastSlot(date, time)) ? 'text-slate-300' : 'text-slate-500'}`}>{time}</div>
             {week.map(date => {
               const key = `${date}|${time}`;
               const checked = slotKeys.has(key);
@@ -104,7 +104,7 @@ function SlotPicker({ slotKeys, onToggle }) {
                   type="button"
                   disabled={past}
                   onClick={() => onToggle(key)}
-                  className={`h-6 rounded border text-[9px] font-semibold transition ${past ? 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed' : checked ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-400 border-slate-200 hover:border-teal-400 hover:text-teal-600'}`}
+                  className={`h-6 rounded border text-xs font-semibold transition ${past ? 'bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed' : checked ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-400 border-slate-200 hover:border-teal-400 hover:text-teal-600'}`}
                 >
                   {checked ? '✓' : ''}
                 </button>
@@ -118,14 +118,14 @@ function SlotPicker({ slotKeys, onToggle }) {
   return (
     <div className="space-y-4 overflow-x-auto">
       <div>
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Current Week</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Current Week</p>
         {renderWeek(currentWeek)}
       </div>
       <div>
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Next Week</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-500">Next Week</p>
         {renderWeek(nextWeek)}
       </div>
-      <p className="text-[10px] text-slate-400">Each selected slot is a 1-hour interview block starting at the chosen time (08:00 – 18:00).</p>
+      <p className="text-xs text-slate-400">Each selected slot is a 1-hour interview block starting at the chosen time (08:00 – 18:00).</p>
     </div>
   );
 }
@@ -216,11 +216,11 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
   return (
-    <div key={`${type}-${data?.id || 'new'}`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div key={`${type}-${data?.id || 'new'}`} className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="workspace-dialog w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-base font-bold text-slate-900 font-heading">{TITLES[type] || 'Action'}</h3>
-          {!forcedPasswordChange && <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>}
+          {!forcedPasswordChange && <button aria-label="Close dialog" onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>}
         </div>
 
         {type === 'allocate' && (
@@ -410,7 +410,7 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
               rows={6}
               required
               defaultValue={'Devon Vance, Staff SRE, Cloud, Sam Rivera, New York, AWS; Terraform; Docker\nSunita Rao, QA Automation Engineer, Digital, Rachel Shah, Bengaluru, Java; Selenium'}
-              className="w-full rounded-xl border border-slate-200 font-mono text-[11px] p-2.5 outline-none"
+              className="w-full rounded-xl border border-slate-200 font-mono text-xs p-2.5 outline-none"
             />
             <Actions onCancel={onClose} submitLabel="Import Records" />
           </form>
@@ -447,7 +447,7 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
             <Field label="Current Password"><input name="currentPassword" type="password" required className={inputCls} /></Field>
             <Field label="New Password"><input name="newPassword" type="password" minLength={12} required className={inputCls} /></Field>
             <Field label="Confirm New Password"><input name="confirmPassword" type="password" minLength={12} required className={inputCls} /></Field>
-            <p className="text-[11px] text-slate-400">At least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
+            <p className="text-xs text-slate-400">At least 12 characters with uppercase, lowercase, a number, and a symbol.</p>
             <div className="pt-3 flex justify-end gap-2">
               {!forcedPasswordChange && <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>}
               <button type="submit" className="rounded-lg bg-teal-700 px-4 py-2 font-bold text-white hover:bg-teal-800">Update Password</button>
@@ -676,7 +676,7 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
                 <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} className="mt-0.5 h-4 w-4 accent-teal-700" />
                 <span>
                   <span className="block font-semibold text-teal-900">Repeat weekly (recurring availability)</span>
-                  <span className="block text-[11px] text-teal-800/80">Every selected day &amp; time stays available each week, so you don't need to re-enter it. Untick to keep these slots for this period only.</span>
+                  <span className="block text-xs text-teal-800/80">Every selected day &amp; time stays available each week, so you don't need to re-enter it. Untick to keep these slots for this period only.</span>
                 </span>
               </label>
             </div>
@@ -717,9 +717,9 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
               {selectedReq && (
                 <div className="col-span-2 rounded-lg bg-slate-50 border border-slate-200 p-3">
                   <p className="font-semibold text-slate-700">{selectedReq.jobTitle}</p>
-                  <p className="text-[11px] text-slate-500">Candidate: {selectedReq.candidateName} · {selectedReq.customer}</p>
+                  <p className="text-xs text-slate-500">Candidate: {selectedReq.candidateName} · {selectedReq.customer}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {(selectedReq.skills || []).map((s) => <span key={s} className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">{s}</span>)}
+                    {(selectedReq.skills || []).map((s) => <span key={s} className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">{s}</span>)}
                   </div>
                 </div>
               )}
@@ -742,14 +742,14 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
                   })}
                 </select>
               </Field>
-              {selectedDomain && selectedReq && matchingPanels.length === 0 && <p className="col-span-2 text-[11px] text-rose-600">No panel members in {selectedDomain} match this job's skills.</p>}
+              {selectedDomain && selectedReq && matchingPanels.length === 0 && <p className="col-span-2 text-xs text-rose-600">No panel members in {selectedDomain} match this job's skills.</p>}
               <Field label="Available Time Slot (from panel's availability)" className="col-span-2">
                 <select name="scheduledAt" required value={selectedSlot || ''} onChange={(e) => setSelectedSlot(e.target.value)} className={inputCls}>
                   <option value="">Select an available 1-hour slot…</option>
                   {panelSlots.map((s) => <option key={`${s.date}|${s.time}`} value={`${s.date} ${s.time}`}>{s.date} · {s.time}</option>)}
                 </select>
               </Field>
-              {selectedPanelId && panelSlots.length === 0 && <p className="col-span-2 text-[11px] text-rose-600">No open availability slots left for this panel member.</p>}
+              {selectedPanelId && panelSlots.length === 0 && <p className="col-span-2 text-xs text-rose-600">No open availability slots left for this panel member.</p>}
               <Field label="Round Number"><input name="roundNumber" type="number" min="1" defaultValue={isResched ? data.roundNumber : 1} className={inputCls} /></Field>
               <Field label="Level"><input name="level" defaultValue={isResched ? (data.level || '') : 'L1'} className={inputCls} placeholder="L1 / L2 / L3 / Lead" /></Field>
               <Field label="Interview Type"><select name="interviewType" defaultValue={isResched ? data.interviewType : 'Technical'} className={inputCls}><option>Technical</option><option>HR</option><option>Managerial</option><option>Cultural</option></select></Field>

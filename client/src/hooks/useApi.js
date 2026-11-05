@@ -47,7 +47,16 @@ export async function apiFetch(path, options = {}) {
     if (body?.code === 'PASSWORD_CHANGE_REQUIRED') {
       window.dispatchEvent(new CustomEvent('caliberate:password-change-required'));
     }
-    throw new Error(body?.error || `Request failed (HTTP ${response.status})`);
+    const error = new Error(body?.error || `Request failed (HTTP ${response.status})`);
+    error.status = response.status;
+    const retryAfter = response.headers.get('Retry-After');
+    if (retryAfter) {
+      const delay = /^\d+$/.test(retryAfter)
+        ? Number(retryAfter) * 1000
+        : Date.parse(retryAfter) - Date.now();
+      if (Number.isFinite(delay)) error.retryAfterMs = Math.max(1000, delay);
+    }
+    throw error;
   }
 
   return body;

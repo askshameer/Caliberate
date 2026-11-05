@@ -23,7 +23,7 @@ services:
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-600}
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
-      APP_VERSION: ${APP_VERSION:-1.1.0}
+      APP_VERSION: ${APP_VERSION:-1.5.0}
     volumes:
       - caliberate-data:/data
     restart: unless-stopped
