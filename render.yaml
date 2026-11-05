@@ -39,3 +39,4 @@ services:
         value: strict
       - key: TRUST_PROXY
         value: "1"
+

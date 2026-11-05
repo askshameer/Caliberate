@@ -56,6 +56,14 @@ function isAllowedOrigin(req, origin) {
   if (!origin) return true;
   const hostOrigin = `${req.protocol}://${req.get('host')}`;
   if (origin === hostOrigin) return true;
+  // Behind a TLS-terminating proxy (Render, etc.) req.protocol can be wrong, so
+  // also accept an origin whose host matches the host the browser requested.
+  try {
+    const originHost = new URL(origin).host;
+    const requestHost = req.get('x-forwarded-host') || req.get('host');
+    if (originHost && originHost === requestHost) return true;
+  } catch { /* fall through to allowlist */ }
+  if (process.env.RENDER_EXTERNAL_URL && origin === process.env.RENDER_EXTERNAL_URL) return true;
   if (config.corsOrigins.includes(origin)) return true;
   return isPrivateDevOrigin(origin);
 }
