@@ -36,26 +36,11 @@ jobs:
       - name: Lint client
         run: npm --prefix client run lint
 
-      - name: Build production client
-        run: npm run build
-
       - name: Audit production server dependencies
         run: npm audit --prefix server --omit=dev
 
-      - name: Start Caliberate in demo mode
-        env:
-          DEMO_MODE: "true"
-          SEED_DEMO_DATA: "true"
-          JWT_SECRET: ci-only-secret-with-more-than-32-characters
-        run: |
-          npm run dev > /tmp/caliberate.log 2>&1 &
-          npx --yes wait-on http://localhost:5173 http://localhost:3001/api/health --timeout 90000
+      - name: Audit production client dependencies
+        run: npm audit --prefix client --omit=dev
 
-      - name: Run end-to-end feature suite
-        env:
-          DEMO_MODE: "true"
+      - name: Build and run isolated feature and regression suites
         run: npm test
-
-      - name: Show server log on failure
-        if: failure()
-        run: cat /tmp/caliberate.log

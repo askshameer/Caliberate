@@ -8,6 +8,7 @@ import {
 } from '../middleware/auth.js';
 import { loginSchema, changePasswordSchema, passwordPolicy } from '../validation/schemas.js';
 import { audit } from '../services/audit.js';
+import { recordLogin } from '../services/loginHistory.js';
 
 const router = Router();
 
@@ -57,19 +58,23 @@ router.post('/login', async (req, res) => {
 
   if (!user) {
     bcrypt.compareSync(password, DUMMY_HASH);
+    await recordLogin(req, null, email, 'Invalid credentials');
     return res.status(401).json({ error: 'Invalid email or password.' });
   }
 
   if (!user.active) {
+    await recordLogin(req, user, email, 'Inactive account');
     return res.status(401).json({ error: 'This account has been deactivated. Contact your administrator.' });
   }
 
   if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+    await recordLogin(req, user, email, 'Account locked');
     return res.status(423).json({ error: 'Account temporarily locked after repeated failed sign-in attempts. Try again later.' });
   }
 
   const validPassword = bcrypt.compareSync(password, user.password);
   if (!validPassword) {
+    await recordLogin(req, user, email, 'Invalid credentials');
     const failedAttempts = Number(user.failed_attempts || 0) + 1;
     const lockedUntil = failedAttempts >= MAX_FAILED_ATTEMPTS
       ? new Date(Date.now() + LOCK_MINUTES * 60 * 1000).toISOString()
@@ -83,6 +88,7 @@ router.post('/login', async (req, res) => {
   saveDb();
 
   const token = signToken(user);
+  await recordLogin(req, user, email, 'Success');
   setSessionCookie(res, token);
 
   req.user = { name: user.name, role: user.role };
@@ -101,7 +107,7 @@ router.post('/logout', async (req, res) => {
       const decoded = jwt.verify(token, config.jwtSecret);
       const db = await getDb();
       const user = one(db, 'SELECT id, name, role, token_version FROM users WHERE id = ?', [decoded.id]);
-      if (user) {
+      if (user && decoded.epoch === config.sessionEpoch && Number(decoded.tv || 0) === Number(user.token_version || 0)) {
         db.run('UPDATE users SET token_version = token_version + 1, updated_at = datetime(\'now\') WHERE id = ?', [user.id]);
         saveDb();
         req.user = { name: user.name, role: user.role };

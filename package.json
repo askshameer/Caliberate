@@ -1,6 +1,6 @@
 {
   "name": "caliberate",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "Caliberate — Resource Utilization & Deployment Tracker",
   "private": true,
   "scripts": {
@@ -11,7 +11,9 @@
     "start": "cd server && node index.js",
     "seed": "cd server && node db/init.js --force",
     "lint": "cd client && npx oxlint",
-    "test": "node test_all_features.mjs"
+    "test": "npm run build && node test_isolated.mjs && npm run test:availability && npm run test:admin",
+    "test:admin": "node test_reset_login.mjs",
+    "test:availability": "node --test test_panel_availability.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

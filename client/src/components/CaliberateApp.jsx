@@ -5,7 +5,7 @@ import {
   UserCircle, ChevronRight, Shield, Calendar, CheckCircle2, AlertTriangle,
   Upload, Building, BookOpen,
   RefreshCw, Award, CheckSquare, BarChart2, Flame, Inbox,
-  LogOut, Menu, UserCog, KeyRound, Pencil, UserPlus, CalendarDays
+  LogOut, Menu, UserCog, KeyRound, Pencil, UserPlus, CalendarDays, RotateCcw, Sparkles
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell
@@ -15,9 +15,35 @@ import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from '../hooks/useApi';
 import { dateDiff, getBenchFlagStatus, calculateMatch, calculateCompleteness } from '../utils/helpers';
 import { TODAY } from '../utils/constants';
 import Modals from './Modals';
+import { BackupRestore, LoginHistory } from './AdminTools';
 
 export default function CaliberateApp() {
-  const { currentUser, logout, role, isPrivileged, isAdmin, demoMode, changePassword } = useAuth();
+  const { currentUser, changePassword, logout } = useAuth();
+  const [passwordError, setPasswordError] = useState('');
+
+  // Business APIs are unavailable until the initial password is changed.
+  // Keep this gate outside the workspace so its loader cannot hide the form.
+  if (currentUser?.mustChangePassword) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Modals
+          modal={{ type: 'change-password' }}
+          forcedPasswordChange
+          onChangePassword={changePassword}
+          onClose={() => {}}
+          notify={setPasswordError}
+        />
+        {passwordError && <div role="alert" className="fixed bottom-6 left-6 right-6 z-[60] rounded-lg bg-rose-700 p-4 text-sm text-white">{passwordError}</div>}
+        <button onClick={logout} className="fixed top-4 right-4 z-[60] rounded-lg border bg-white px-4 py-2 text-sm font-semibold">Sign out</button>
+      </div>
+    );
+  }
+
+  return <Workspace key={currentUser?.id} />;
+}
+
+function Workspace() {
+  const { currentUser, logout, role, isPrivileged, isAdmin, changePassword, restartSetup } = useAuth();
 
   const [people, setPeople] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -44,6 +70,9 @@ export default function CaliberateApp() {
   const [drawerTab, setDrawerTab] = useState('overview');
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [importResult, setImportResult] = useState(null);
+  const importInputRef = useRef(null);
   const navigationRef = useRef(null);
   const navigationToggleRef = useRef(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -116,11 +145,11 @@ export default function CaliberateApp() {
         apiGet('/panels/me').catch(() => null),
         apiGet('/notifications').catch(() => [])
       ]);
-      setPeople(peopleData);
-      setJobs(jobsData);
+      setPeople(Array.isArray(peopleData) ? peopleData : []);
+      setJobs(Array.isArray(jobsData) ? jobsData : []);
       setApplications(appsData);
       setRequests(reqsData);
-      setSettings(settingsData);
+      if (settingsData) setSettings(settingsData);
       setExternalRequests(extData);
       setPanels(panelsData);
       setRoster(rosterData);
@@ -306,11 +335,38 @@ export default function CaliberateApp() {
       loadAuditLog();
     }, 'Bench thresholds saved and recalculated.'),
 
-    resetDemo: () => run(async () => {
+    resetAll: () => run(async () => {
       await apiPost('/settings/reset', { confirm: 'RESET' });
+      restartSetup();
+    }, 'Application reset to its original state.'),
+
+    loadDemo: () => run(async () => {
+      await apiPost('/settings/load-demo', { confirm: 'DEMO' });
+      setPage('Dashboard');
       await loadData();
-      loadAuditLog();
-    }, 'Demo data reset.'),
+      loadUsers();
+    }, 'Demo data loaded. Demo accounts use the password caliberate123.'),
+
+    exportUsers: () => run(async () => {
+      const response = await fetch(`${(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')}/users/export`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Could not export users.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'caliberate-users.csv';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'User list exported.'),
+
+    importUsers: (file) => run(async () => {
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) throw new Error('CSV file is too large (max 2 MB).');
+      const csv = await file.text();
+      const result = await apiPost('/users/import', { csv });
+      setImportResult(result);
+      await loadUsers();
+    }, null),
 
     saveOverride: (override) => run(async () => {
       const base = draftSettings ?? settings;
@@ -386,6 +442,12 @@ export default function CaliberateApp() {
       await loadData();
       setActiveModal(null);
     }, 'Interview updated.'),
+
+    submitInterviewFeedback: (id, v) => run(async () => {
+      await apiPost(`/interview-roster/${id}/feedback`, v);
+      await loadData();
+      setActiveModal(null);
+    }, 'Interview feedback submitted.'),
 
     markNotificationRead: (id) => run(async () => {
       await apiPost(`/notifications/${id}/read`);
@@ -602,7 +664,7 @@ export default function CaliberateApp() {
       { id: 'Supply Demand', label: 'Supply vs Demand', icon: Flame },
       { id: 'Reports', label: 'Analytics & Reports', icon: BarChart2 },
       ...(privileged ? [{ id: 'Settings', label: 'Settings & Policies', icon: Settings }] : []),
-      ...(isAdmin ? [{ id: 'Users', label: 'Users & Access', icon: UserCog }] : [])
+      ...(isAdmin ? [{ id: 'Users', label: 'Users & Access', icon: UserCog }, { id: 'Login History', label: 'Login History', icon: KeyRound }, { id: 'Backup', label: 'Backup & Restore', icon: Download }, { id: 'Reset', label: 'Reset Application', icon: RotateCcw }] : [])
     ];
   }, [role, metrics.redFlagsCount, metrics.rolloffs30d.length, requests, externalRequests, roster, privileged, isAdmin]);
 
@@ -1522,7 +1584,7 @@ export default function CaliberateApp() {
             <h3 className="text-sm font-bold text-slate-900">System Audit Log</h3>
             <div className="flex gap-3">
               <button onClick={loadAuditLog} className="flex items-center gap-1 text-xs font-bold text-teal-700 hover:underline"><RefreshCw className="h-3 w-3" /> Refresh</button>
-              {isAdmin && demoMode && <button onClick={() => { if (window.confirm('Reset ALL demo data back to the seeded dataset? This cannot be undone.')) handlers.resetDemo(); }} className="text-xs font-bold text-rose-600 hover:underline">Reset Demo Data</button>}
+
             </div>
           </div>
           <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 text-xs">
@@ -1616,6 +1678,32 @@ export default function CaliberateApp() {
                   </div>
                 </div>
               )}
+              {(() => {
+                const reqInterviews = roster.filter(item => item.requestId === r.id);
+                if (reqInterviews.length === 0) return null;
+                return (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Interview Rounds &amp; Panel Feedback</p>
+                    {reqInterviews.map(item => (
+                      <div key={item.id} className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-slate-800">R{item.roundNumber}{item.level ? ` · ${item.level}` : ''} ({item.interviewType})</span>
+                            <span className="text-slate-500">Panel: {item.panelName}</span>
+                            <span className="text-slate-400">{item.scheduledAt}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span>
+                            {item.decision && <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${decisionBadgeStyle(item.decision)}`}>{item.decision}</span>}
+                          </div>
+                        </div>
+                        {item.feedback && <p className="mt-2 whitespace-pre-wrap text-slate-700">{item.feedback}</p>}
+                        {item.status === 'Completed' && !item.feedback && <p className="mt-1 text-slate-400 italic">Awaiting panel feedback.</p>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {canReview && r.status === 'Pending' && (
                   <>
@@ -1711,6 +1799,12 @@ export default function CaliberateApp() {
     Completed: 'bg-slate-100 text-slate-500 border-slate-200',
     Cancelled: 'bg-rose-50 text-rose-700 border-rose-200'
   }[status] || 'bg-slate-100 text-slate-500 border-slate-200');
+
+  const decisionBadgeStyle = (decision) => ({
+    SELECT: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    REJECT: 'bg-rose-50 text-rose-700 border-rose-200',
+    HOLD: 'bg-amber-50 text-amber-700 border-amber-200'
+  }[decision] || 'bg-slate-100 text-slate-500 border-slate-200');
 
   const renderInterviewRoster = () => {
     const isTA = role === 'TA';
@@ -1815,11 +1909,12 @@ export default function CaliberateApp() {
                   <th className="px-5 py-3.5">Scheduled</th>
                   <th className="px-5 py-3.5">Duration</th>
                   <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Feedback &amp; Decision</th>
                   {isTA && <th className="px-5 py-3.5 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {roster.length === 0 && <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No interviews scheduled.</td></tr>}
+                {roster.length === 0 && <tr><td colSpan={isTA ? 9 : 8} className="px-5 py-12 text-center text-slate-400">No interviews scheduled.</td></tr>}
                 {roster.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/80">
                     <td className="px-5 py-3"><p className="font-semibold text-slate-800">{item.candidateName}</p><p className="text-xs text-slate-400">{item.jobTitle}</p></td>
@@ -1829,6 +1924,16 @@ export default function CaliberateApp() {
                     <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
                     <td className="px-5 py-3 text-slate-600">{item.durationMinutes}m</td>
                     <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
+                    <td className="px-5 py-3 max-w-xs">
+                      {item.decision ? (
+                        <div className="space-y-1">
+                          <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold ${decisionBadgeStyle(item.decision)}`}>{item.decision}</span>
+                          {item.feedback && <p className="text-xs text-slate-600 whitespace-pre-wrap">{item.feedback}</p>}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">{item.status === 'Completed' ? 'Awaiting feedback' : '—'}</span>
+                      )}
+                    </td>
                     {isTA && (
                       <td className="px-5 py-3 text-right whitespace-nowrap">
                         {item.status !== 'Completed' && item.status !== 'Cancelled' && (
@@ -1942,10 +2047,10 @@ export default function CaliberateApp() {
           <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
-                <tr><th className="px-5 py-3.5">Candidate</th><th className="px-5 py-3.5">Role</th><th className="px-5 py-3.5">Round</th><th className="px-5 py-3.5">Type</th><th className="px-5 py-3.5">Scheduled</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Actions</th></tr>
+                <tr><th className="px-5 py-3.5">Candidate</th><th className="px-5 py-3.5">Role</th><th className="px-5 py-3.5">Round</th><th className="px-5 py-3.5">Type</th><th className="px-5 py-3.5">Scheduled</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5">Feedback &amp; Decision</th><th className="px-5 py-3.5 text-right">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {own.length === 0 && <tr><td colSpan={7} className="px-5 py-12 text-center text-slate-400">No interviews scheduled for you.</td></tr>}
+                {own.length === 0 && <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No interviews scheduled for you.</td></tr>}
                 {own.map(item => (
                   <tr key={item.id}>
                     <td className="px-5 py-3 font-semibold text-slate-800">{item.candidateName}</td>
@@ -1954,9 +2059,22 @@ export default function CaliberateApp() {
                     <td className="px-5 py-3 text-slate-600">{item.interviewType}</td>
                     <td className="px-5 py-3 text-slate-600">{item.scheduledAt}</td>
                     <td className="px-5 py-3"><span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${rosterStatusStyle(item.status)}`}>{item.status}</span></td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 max-w-xs">
+                      {item.decision ? (
+                        <div className="space-y-1">
+                          <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold ${decisionBadgeStyle(item.decision)}`}>{item.decision}</span>
+                          {item.feedback && <p className="text-xs text-slate-600 whitespace-pre-wrap">{item.feedback}</p>}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">{item.status === 'Completed' ? 'Pending' : '—'}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right whitespace-nowrap">
                       {item.status !== 'Cancelled' && item.status !== 'Completed' && (
                         <button onClick={() => { if (window.confirm(`Cancel your interview with ${item.candidateName} on ${item.scheduledAt}?`)) handlers.updateInterview(item.id, { status: 'Cancelled' }); }} className="rounded-md bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100">Cancel</button>
+                      )}
+                      {item.status === 'Completed' && (
+                        <button onClick={() => setActiveModal({ type: 'interview-feedback', data: item })} className="rounded-md bg-teal-50 px-2.5 py-1 font-semibold text-teal-700 hover:bg-teal-100">{item.decision ? 'Edit Feedback' : 'Give Feedback'}</button>
                       )}
                     </td>
                   </tr>
@@ -1972,6 +2090,44 @@ export default function CaliberateApp() {
   // ============================================================
   //  RENDER: Users & Access (Admin only)
   // ============================================================
+  const renderReset = () => (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="page-heading">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Reset Application</h1>
+        <p className="text-xs text-slate-500">Erase all data and return to first-time setup.</p>
+      </div>
+      <div className="rounded-2xl border border-rose-200 bg-white p-6 shadow-xs">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700"><AlertTriangle className="h-5 w-5" /></span>
+          <div className="text-xs text-slate-600 space-y-2">
+            <p className="text-sm font-bold text-slate-900">This permanently deletes your data</p>
+            <p>Employees, openings, applications, staffing and external-hire requests, interview panels and rosters, notifications, uploaded resumes, settings, login history and the audit log will be erased. <strong>Every account, including your administrator login, will be removed.</strong> You will return to first-time setup to choose demo data or create a new administrator.</p>
+            <button onClick={() => setPage('Backup')} className="font-semibold text-teal-700 underline">Download a backup before resetting</button>
+            <p className="font-semibold text-rose-700">This cannot be undone.</p>
+          </div>
+        </div>
+        <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); if (resetConfirmText === 'RESET') handlers.resetAll(); }}>
+          <label htmlFor="reset-confirm" className="block text-xs font-semibold text-slate-700">Type <span className="font-mono font-bold text-rose-700">RESET</span> to confirm</label>
+          <input id="reset-confirm" autoComplete="off" value={resetConfirmText} onChange={(e) => setResetConfirmText(e.target.value)} placeholder="RESET" className="w-full rounded-lg border border-slate-200 p-2.5 font-mono text-sm outline-none focus:border-rose-500" />
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={() => { setResetConfirmText(''); setPage('Dashboard'); }} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={resetConfirmText !== 'RESET'} className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"><RotateCcw className="h-4 w-4" /> Reset All &amp; Confirm</button>
+          </div>
+        </form>
+      </div>
+      <div className="rounded-2xl border border-teal-200 bg-white p-6 shadow-xs">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700"><Sparkles className="h-5 w-5" /></span>
+          <div className="flex-1 text-xs text-slate-600 space-y-2">
+            <p className="text-sm font-bold text-slate-900">Re-populate demo data</p>
+            <p>Load the sample employees, openings, interview panels and one demo account per role (password <span className="font-mono font-semibold">caliberate123</span>). Existing business data is replaced, your own admin login is kept, and any imported user with the same email as a demo account is replaced by the demo account.</p>
+            <div className="pt-1"><button onClick={() => { if (window.confirm('Replace the current data with the demo dataset?')) handlers.loadDemo(); }} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-xs font-bold text-white hover:bg-teal-800"><Sparkles className="h-4 w-4" /> Load demo data</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderUsers = () => (
     <div className="space-y-6">
       <div className="page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1979,10 +2135,33 @@ export default function CaliberateApp() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-heading">Users &amp; Access</h1>
           <p className="text-xs text-slate-500">Provision accounts, assign roles, and revoke access. Passwords must be at least 12 characters with mixed case, a number, and a symbol.</p>
         </div>
-        <button onClick={() => setActiveModal({ type: 'user-form', data: null })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-teal-800">
-          <Plus className="h-4 w-4" /> Add User
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input ref={importInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { handlers.importUsers(e.target.files?.[0]); e.target.value = ''; }} />
+          <button onClick={handlers.exportUsers} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50">
+            <Download className="h-4 w-4 text-slate-500" /> Export CSV
+          </button>
+          <button onClick={() => importInputRef.current?.click()} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50">
+            <Upload className="h-4 w-4 text-slate-500" /> Import CSV
+          </button>
+          <button onClick={() => setActiveModal({ type: 'user-form', data: null })} className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-teal-800">
+            <Plus className="h-4 w-4" /> Add User
+          </button>
+        </div>
       </div>
+      <p className="text-[11px] text-slate-500">CSV columns: <span className="font-mono">name, email, role, roleTitle, department, status</span>. Imported users get the default password <span className="font-mono font-semibold">Password@123</span> and must change it at first sign-in.</p>
+      {importResult && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-xs shadow-xs" role="status">
+          <div className="flex items-start justify-between gap-3">
+            <p className="font-semibold text-slate-800">{importResult.message} {importResult.skipped?.length > 0 && <span className="text-amber-700">{importResult.skipped.length} row{importResult.skipped.length === 1 ? '' : 's'} skipped.</span>}</p>
+            <button onClick={() => setImportResult(null)} className="rounded-md p-1 text-slate-400 hover:text-slate-600" aria-label="Dismiss"><X className="h-4 w-4" /></button>
+          </div>
+          {importResult.skipped?.length > 0 && (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-[11px] text-slate-600">
+              {importResult.skipped.map((s, i) => <li key={i}>Line {s.line}{s.email ? ` (${s.email})` : ''}: {s.reason}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
         <div className="data-table-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
           <table className="w-full text-left text-xs">
@@ -2185,7 +2364,7 @@ export default function CaliberateApp() {
           <button onClick={logout} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/60 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
             <LogOut className="h-3.5 w-3.5" /><span>Sign Out ({currentUser?.name?.split(' ')[0]})</span>
           </button>
-          <div className="flex items-center justify-between text-xs text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v2.0.0</span></div>
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1"><span>Ref Date: {TODAY}</span><span className="flex items-center gap-1"><Shield className="h-3 w-3 text-teal-600" /> v2.5.0</span></div>
         </div>
       </aside>
 
@@ -2275,6 +2454,9 @@ export default function CaliberateApp() {
             {activePage === 'Reports' && renderReports()}
             {activePage === 'Settings' && renderSettings()}
             {activePage === 'Users' && isAdmin && renderUsers()}
+            {activePage === 'Reset' && isAdmin && renderReset()}
+            {activePage === 'Backup' && isAdmin && <BackupRestore />}
+            {activePage === 'Login History' && isAdmin && <LoginHistory />}
             {activePage === 'External Hires' && renderExternalHires()}
             {activePage === 'Panels' && renderPanels()}
             {activePage === 'Interview Roster' && renderInterviewRoster()}

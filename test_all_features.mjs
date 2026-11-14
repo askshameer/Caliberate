@@ -1,6 +1,7 @@
 // Caliberate Full End-to-End Functionality Verification Test
-const BASE_URL = 'http://localhost:3001';
-const FRONTEND_URL = 'http://localhost:5173';
+import { getBenchFlagStatus, calculateMatch, calculateCompleteness } from './client/src/utils/helpers.js';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3001';
+const FRONTEND_URL = process.env.TEST_FRONTEND_URL || 'http://localhost:5173';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -45,14 +46,14 @@ async function runTests() {
   console.log('--- 1. Web & Server Reachability ---');
   try {
     const feRes = await request(FRONTEND_URL);
-    assert(feRes.status === 200 && feRes.body.includes('Caliberate'), 'Frontend Vite Server running and serving HTML', `status: ${feRes.status}`);
+    assert(feRes.status === 200 && feRes.body.includes('Caliberate'), 'Frontend serves Caliberate HTML', `status: ${feRes.status}`);
   } catch (err) {
-    assert(false, 'Frontend Vite Server running', err.message);
+    assert(false, 'Frontend serves Caliberate HTML', err.message);
   }
 
   try {
     const staticRes = await request(`${BASE_URL}/`);
-    assert(staticRes.status === 200, 'Express backend serving production/static app on port 3001', `status: ${staticRes.status}`);
+    assert(staticRes.status === 200, 'Express backend serves the production app', `status: ${staticRes.status}`);
   } catch (err) {
     assert(false, 'Express backend serving static app', err.message);
   }
@@ -450,18 +451,6 @@ async function runTests() {
   const mockCritical = { status: 'Bench', days: 35, practice: 'Digital' };
   const mockDeployed = { status: 'Deployed', days: 40, practice: 'Digital' };
 
-  function getBenchFlagStatus(person, settings) {
-    if (person.status !== 'Bench') return 'None';
-    const override = settings?.overrides?.find(o =>
-      (o.scope === 'Practice' && o.scopeName === person.practice) ||
-      (o.scope === 'Skill' && person.skills?.some(s => s.name === o.scopeName))
-    );
-    const thresholds = override || settings?.global || { amber: 10, red: 15, critical: 30 };
-    if (person.days >= thresholds.critical) return 'Critical';
-    if (person.days >= thresholds.red) return 'Red';
-    if (person.days >= thresholds.amber) return 'Amber';
-    return 'Green';
-  }
 
   assert(getBenchFlagStatus(mockGreen, defaultSettings) === 'Green', 'Bench flag: 5 days -> Green');
   assert(getBenchFlagStatus(mockAmber, defaultSettings) === 'Amber', 'Bench flag: 12 days -> Amber');
@@ -478,17 +467,6 @@ async function runTests() {
   assert(getBenchFlagStatus(mockSap, practiceOverrideSettings) === 'Green', 'Practice override elevates amber threshold for SAP (15d is Green under SAP policy)');
 
   // Job Match Scoring Algorithm
-  function calculateMatch(person, job) {
-    if (!person || !job) return { score: 0, matchedMust: [], missingMust: [], matchedNice: [] };
-    const personSkillNames = person.skills?.map(s => s.name.toLowerCase()) || [];
-    const matchedMust = (job.mustHave || []).filter(s => personSkillNames.includes(s.toLowerCase()));
-    const missingMust = (job.mustHave || []).filter(s => !personSkillNames.includes(s.toLowerCase()));
-    const matchedNice = (job.niceToHave || []).filter(s => personSkillNames.includes(s.toLowerCase()));
-    const totalPoints = ((job.mustHave || []).length * 2) + ((job.niceToHave || []).length * 1);
-    const earnedPoints = (matchedMust.length * 2) + (matchedNice.length * 1);
-    const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
-    return { score, matchedMust, missingMust, matchedNice };
-  }
 
   const candidate = {
     skills: [{ name: 'Java' }, { name: 'Spring Boot' }, { name: 'AWS' }]
@@ -501,22 +479,6 @@ async function runTests() {
   assert(matchResult.score === 83 && matchResult.matchedMust.length === 2 && matchResult.missingMust.length === 0, 'Match scoring: 83% weighted match score with must-have 2x weighting');
 
   // Profile Completeness Calculator
-  function calculateCompleteness(person) {
-    if (!person) return { pct: 0, missing: [] };
-    let score = 30;
-    const missing = [];
-    if (person.skills && person.skills.length >= 3) score += 20;
-    else missing.push('skills');
-    if (person.certs && person.certs.length > 0) score += 20;
-    else missing.push('certs');
-    if (person.resumeUrl) score += 15;
-    else missing.push('resume');
-    if (person.experience && person.experience.length > 30) score += 10;
-    else missing.push('experience');
-    if (person.preferences && person.preferences.domains && person.preferences.domains.length > 0) score += 5;
-    else missing.push('preferences');
-    return { pct: Math.min(score, 100), missing };
-  }
 
   const completeProfile = {
     skills: [{ name: 'React' }, { name: 'TypeScript' }, { name: 'Node' }],
@@ -731,6 +693,66 @@ async function runTests() {
     body: JSON.stringify({ name: 'Blocked Panel', email: 'blocked@caliberate.io', password: 'Str0ng!Passw0rd', skills: ['Java'] })
   });
   assert(managerPanelCreate.status === 403, 'Only Admin can create panel members');
+
+  console.log('\n--- 13. Validation, Notifications, Lifecycle & Cookie Sessions ---');
+  const call = (route, role = 'Admin', method = 'GET', data) => request(`/api${route}`, {
+    method, headers: { Authorization: `Bearer ${tokens[role]}` },
+    ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+  });
+  assert((await call('/people', 'Admin', 'POST', {})).status === 400, 'Empty employee payload is rejected');
+  assert((await call(`/people/${createdPersonId}`, 'Admin', 'PUT', { allocationPct: 101 })).status === 400, 'Allocation above 100% is rejected');
+  assert((await call('/settings', 'Admin', 'PUT', { global: { amber: 30, red: 15, critical: 10 } })).status === 400, 'Out-of-order bench thresholds are rejected');
+  assert((await call('/people/import', 'Admin', 'POST', { csv: '' })).status === 400, 'Empty workforce CSV is rejected');
+  assert((await call('/users/import', 'Admin', 'POST', { csv: 'name\nInvalid' })).status === 400, 'User import requires mandatory columns');
+  const exportedUsers = await call('/users/export');
+  assert(exportedUsers.status === 200 && exportedUsers.headers.get('content-type').includes('text/csv') && !exportedUsers.body.includes('$2'), 'User CSV export excludes password hashes');
+  assert((await call('/users/export', 'Resource')).status === 403, 'User export is admin-only');
+  assert((await call('/people/99999999')).status === 404, 'Unknown employee returns 404');
+  const malformed = await request('/api/people', { method: 'POST', headers: { Authorization: `Bearer ${tokens.Admin}` }, body: '{' });
+  assert(malformed.status === 400, 'Malformed JSON returns 400');
+  assert((await call(`/users/${meRes.body.id}`, 'Admin', 'DELETE')).status === 400, 'Administrator cannot deactivate their own account');
+  assert((await request('/api/auth/me', { headers: { Authorization: `Bearer ${changedPassword.body.token}` } })).status === 401, 'Deactivation revokes the existing user session');
+
+  const beforeRead = await call('/notifications/unread-count');
+  assert(beforeRead.body.count > 0, 'Cancellation increases notification unread count');
+  const notification = (await call('/notifications')).body.find(n => !n.read);
+  await call(`/notifications/${notification.id}/read`, 'Operations', 'POST', {});
+  assert((await call('/notifications/unread-count')).body.count === beforeRead.body.count, 'Other roles cannot mark admin notifications read');
+  await call(`/notifications/${notification.id}/read`, 'Admin', 'POST', {});
+  assert((await call('/notifications/unread-count')).body.count === beforeRead.body.count - 1, 'Mark-one-read decrements unread count');
+  await call('/notifications/read-all', 'Admin', 'POST', {});
+  assert((await call('/notifications/unread-count')).body.count === 0, 'Mark-all-read clears unread count');
+  assert((await call('/notifications', 'Resource')).status === 403, 'Resource cannot read role notifications');
+
+  const release = await call('/requests', 'Admin', 'POST', { personId: createdPersonId, action: 'Release', reason: 'Assignment completed; release to bench.' });
+  assert(release.status === 201, 'Release-to-bench request can be created');
+  assert((await call('/requests', 'Admin', 'POST', { personId: createdPersonId, action: 'Release', reason: 'Duplicate request should be rejected.' })).status === 409, 'Duplicate pending staffing requests are rejected');
+  await call(`/requests/${release.body.id}`, 'Operations', 'PUT', { status: 'Approved' });
+  const released = await call(`/people/${createdPersonId}`);
+  assert(released.body.status === 'Bench' && released.body.allocationPct === 0 && released.body.project === '', 'Approved release clears deployment and allocation');
+  assert((await call(`/requests/${release.body.id}`, 'Operations', 'PUT', { status: 'Approved' })).status === 409, 'Reviewed request cannot be approved twice');
+  const rejected = await call('/requests', 'Admin', 'POST', { personId: createdPersonId, action: 'Release', reason: 'Request for rejection coverage.' });
+  const decision = await call(`/requests/${rejected.body.id}`, 'Operations', 'PUT', { status: 'Rejected', rejectionReason: 'Not required' });
+  assert(decision.status === 200 && decision.body.request.status === 'Rejected', 'Operations can reject a staffing request');
+  const editedJob = await call(`/jobs/${newJobRes.body.id}`, 'Manager', 'PUT', { title: 'Updated QA Opening' });
+  assert(editedJob.status === 200 && editedJob.body.title === 'Updated QA Opening', 'Manager can edit their own opening');
+  assert((await call(`/jobs/${newJobRes.body.id}`, 'Resource', 'DELETE')).status === 403, 'Resource cannot close openings');
+  const closedJob = await call(`/jobs/${newJobRes.body.id}`, 'Manager', 'DELETE');
+  assert(closedJob.status === 200 && closedJob.body.status === 'Closed', 'Manager can close their own opening');
+  assert((await call(`/people/${createdPersonId}`, 'Resource', 'DELETE')).status === 403, 'Resource cannot deactivate employees');
+  assert((await call(`/people/${createdPersonId}`, 'Admin', 'DELETE')).status === 200, 'Admin can deactivate employees');
+  assert(!(await call('/people')).body.some(p => p.id === createdPersonId), 'Deactivated employee is removed from active workforce');
+
+  const cookieLogin = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: 'sales@caliberate.io', password: 'caliberate123' }) });
+  const cookieHeader = cookieLogin.headers.get('set-cookie') || '';
+  assert(/HttpOnly/i.test(cookieHeader) && /SameSite=Strict/i.test(cookieHeader), 'Sign-in sets an httpOnly SameSite session cookie');
+  const cookie = cookieHeader.split(';')[0];
+  assert((await request('/api/auth/me', { headers: { Cookie: cookie } })).body.role === 'Sales', 'Cookie session authenticates without bearer token');
+  const logout = await request('/api/auth/logout', { method: 'POST', headers: { Cookie: cookie }, body: '{}' });
+  assert(logout.status === 200 && /Expires=/i.test(logout.headers.get('set-cookie') || ''), 'Logout clears session cookie');
+  assert((await request('/api/auth/me', { headers: { Cookie: cookie } })).status === 401, 'Logged-out cookie cannot be reused');
+  assert((await call('/auth/me', 'Sales')).status === 401, 'Logout also revokes existing bearer tokens');
+  assert(healthRes.headers.get('x-content-type-options') === 'nosniff' && !!healthRes.headers.get('content-security-policy'), 'Security response headers are present');
 
   // Summary
   console.log('\n====================================================');

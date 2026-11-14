@@ -252,6 +252,11 @@ export const rosterUpdateSchema = z.object({
   notes: z.string().trim().max(2000).optional()
 });
 
+export const rosterFeedbackSchema = z.object({
+  decision: z.enum(['SELECT', 'REJECT', 'HOLD']),
+  feedback: z.string().trim().min(3, 'Please provide interview feedback (at least 3 characters).').max(4000)
+});
+
 export const passwordPolicy = (password) => {
   const checks = [
     password.length >= 12,

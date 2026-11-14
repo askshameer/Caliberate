@@ -31,6 +31,7 @@ export function signToken(user) {
   return jwt.sign(
     {
       id: user.id,
+      epoch: config.sessionEpoch,
       email: user.email,
       role: user.role,
       name: user.name,
@@ -80,6 +81,9 @@ export async function authenticate(req, res, next) {
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
     const db = await getDb();
+    if (decoded.epoch !== config.sessionEpoch) {
+      return res.status(401).json({ error: 'Session has expired. Please sign in again.' });
+    }
     const user = one(db, 'SELECT * FROM users WHERE id = ? LIMIT 1', [decoded.id]);
 
     if (!user || !user.active) {

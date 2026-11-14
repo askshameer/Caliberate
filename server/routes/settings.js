@@ -1,11 +1,32 @@
 import { Router } from 'express';
-import { getDb, saveDb, reseedDatabase, all, one } from '../db/init.js';
+import multer from 'multer';
+import { createBackup, restoreBackup, MAX_BACKUP_BYTES } from '../services/backup.js';
+import { getDb, saveDb, resetToClean, loadDemoData, all, one } from '../db/init.js';
 import { config } from '../config.js';
-import { authenticate, requirePrivileged, requireAdmin } from '../middleware/auth.js';
+import { authenticate, requirePrivileged, requireAdmin, clearSessionCookie } from '../middleware/auth.js';
 import { settingsUpdateSchema, auditCreateSchema, exportAuditSchema } from '../validation/schemas.js';
 import { audit } from '../services/audit.js';
 
 const router = Router();
+const backupUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_BACKUP_BYTES, files: 1, fields: 1 } });
+
+router.get('/backup', authenticate, requireAdmin, async (req, res) => {
+  const backup = await createBackup();
+  res.setHeader('Cache-Control', 'no-store');
+  res.attachment(`caliberate-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  res.json(backup);
+});
+
+router.post('/restore', authenticate, requireAdmin, backupUpload.single('backup'), async (req, res) => {
+  if (req.body?.confirm !== 'RESTORE' || !req.file) return res.status(400).json({ error: 'Select a backup and type RESTORE to confirm.' });
+  try {
+    await restoreBackup(JSON.parse(req.file.buffer.toString('utf8')));
+  } catch (error) {
+    return res.status(400).json({ error: `Restore failed: ${error.message}` });
+  }
+  clearSessionCookie(res);
+  res.json({ message: 'Backup restored. Sign in with an account from the backup.' });
+});
 
 const DEFAULT_SETTINGS = {
   global: { amber: 10, red: 15, critical: 30 },
@@ -101,16 +122,24 @@ router.post('/export-audit', authenticate, async (req, res) => {
   res.status(201).json({ message: 'Export logged.' });
 });
 
-// POST /api/settings/reset — reset demo data. Disabled outside demo mode.
+// POST /api/settings/reset — return the application to its original, demo-free
+// state. Clears all data and users, including the administrator, for setup.
 router.post('/reset', authenticate, requireAdmin, async (req, res) => {
-  if (!config.demoMode) {
-    return res.status(403).json({ error: 'Demo data reset is disabled in this environment.' });
-  }
   if (req.body?.confirm !== 'RESET') {
-    return res.status(400).json({ error: 'Send { "confirm": "RESET" } to confirm the destructive demo reset.' });
+    return res.status(400).json({ error: 'Type RESET to confirm.' });
   }
-  await reseedDatabase();
-  res.json({ message: 'Demo data reset and re-seeded.' });
+  await resetToClean();
+  clearSessionCookie(res);
+  res.json({ message: 'Application reset. Complete first-time setup to continue.', setupRequired: true });
+});
+// POST /api/settings/load-demo — re-populate the demo dataset (e.g. after a reset).
+router.post('/load-demo', authenticate, requireAdmin, async (req, res) => {
+  if (req.body?.confirm !== 'DEMO') {
+    return res.status(400).json({ error: 'Confirmation required to load demo data.' });
+  }
+  await loadDemoData(req.user.id);
+  await audit(req, 'Loaded Demo Data', 'System', 'Demo accounts and sample dataset loaded');
+  res.json({ message: 'Demo data loaded.' });
 });
 
 export default router;

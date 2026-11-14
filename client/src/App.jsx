@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
+import SetupPage from './components/SetupPage';
 import CaliberateApp from './components/CaliberateApp';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -24,25 +25,50 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+function AppRoutes() {
+  const { setupRequired, setupChecked } = useAuth();
+
+  if (!setupChecked) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-sm font-semibold text-slate-500">Loading Caliberate...</div>
+      </div>
+    );
+  }
+
+  // First launch: nobody can sign in until the setup wizard has been completed.
+  if (setupRequired) {
+    return (
+      <Routes>
+        <Route path="*" element={<SetupPage />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Protected Application Routes */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <CaliberateApp />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<LoginPage />} />
-            
-            {/* Protected Application Routes */}
-            <Route 
-              path="/*" 
-              element={
-                <ProtectedRoute>
-                  <CaliberateApp />
-                </ProtectedRoute>
-              } 
-            />
-          </Routes>
+          <AppRoutes />
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>

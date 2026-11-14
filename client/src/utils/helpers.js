@@ -1,4 +1,4 @@
-import { TODAY } from './constants';
+import { TODAY } from './constants.js';
 
 // Calculate days between two date strings
 export function dateDiff(dateStr, baseStr = TODAY) {

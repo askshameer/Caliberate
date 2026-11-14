@@ -19,20 +19,14 @@ services:
         value: "3001"
       - key: JWT_SECRET
         generateValue: true  # Render generates a long random secret
-      - key: ADMIN_EMAIL
-        sync: false          # you enter this in the Render dashboard
-      - key: ADMIN_PASSWORD
-        sync: false          # 12+ chars with upper, lower, number and symbol
       - key: ADMIN_NAME
         value: Platform Administrator
       - key: DB_PATH
         value: /data/caliberate.db
       - key: UPLOAD_DIR
         value: /data/uploads
-      - key: DEMO_MODE
-        value: "true"
-      - key: SEED_DEMO_DATA
-        value: "true"
+      # No ADMIN_* / DEMO_MODE here on purpose: the first-run setup wizard asks whether
+      # to start with demo data or create your own administrator.
       - key: COOKIE_SECURE
         value: "true"
       - key: COOKIE_SAME_SITE

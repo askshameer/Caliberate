@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getDb, saveDb, all, one } from '../db/init.js';
 import { authenticate } from '../middleware/auth.js';
-import { rosterCreateSchema, rosterUpdateSchema } from '../validation/schemas.js';
+import { rosterCreateSchema, rosterUpdateSchema, rosterFeedbackSchema } from '../validation/schemas.js';
 import { audit } from '../services/audit.js';
 import { notifyRoles } from '../services/notify.js';
 import { effectiveSlots } from '../services/availability.js';
@@ -27,6 +27,9 @@ function parseRoster(r) {
     durationMinutes: r.duration_minutes,
     status: r.status,
     notes: r.notes,
+    feedback: r.feedback || '',
+    decision: r.decision || '',
+    feedbackSubmittedAt: r.feedback_submitted_at || null,
     createdBy: r.created_by,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -97,6 +100,9 @@ router.get('/', authenticate, async (req, res) => {
     if (!panel) return res.json([]);
     query += ' WHERE panel_id = ?';
     params.push(panel.id);
+  } else if (role === 'Manager') {
+    query += ' WHERE request_id IN (SELECT id FROM external_requests WHERE manager = ?)';
+    params.push(req.user.name);
   }
   query += ' ORDER BY scheduled_at DESC';
   res.json(all(db, query, params).map(parseRoster));
@@ -275,6 +281,48 @@ router.put('/:id', authenticate, async (req, res) => {
       `${updated.candidate_name} · ${updated.job_title} · ${updated.scheduled_at} was cancelled by ${updated.panel_name}.`
     );
   }
+
+  res.json(parseRoster(updated));
+});
+
+// POST /api/interview-roster/:id/feedback — Panel submits feedback & decision (SELECT/REJECT/HOLD) once completed
+router.post('/:id/feedback', authenticate, async (req, res) => {
+  if (req.user.role !== 'Panel') {
+    return res.status(403).json({ error: 'Only interview panel members can submit interview feedback.' });
+  }
+  const parsed = rosterFeedbackSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid feedback payload.' });
+  }
+
+  const db = await getDb();
+  const targetId = Number(req.params.id);
+  const existing = one(db, 'SELECT * FROM interview_roster WHERE id = ?', [targetId]);
+  if (!existing) return res.status(404).json({ error: 'Interview not found.' });
+
+  const ownPanel = one(db, 'SELECT id FROM panels WHERE user_id = ?', [req.user.id]);
+  if (!ownPanel || Number(ownPanel.id) !== Number(existing.panel_id)) {
+    return res.status(403).json({ error: 'You can only submit feedback for your own interviews.' });
+  }
+  if (existing.status !== 'Completed') {
+    return res.status(400).json({ error: 'Feedback can only be submitted once the interview is completed.' });
+  }
+
+  db.run(
+    `UPDATE interview_roster
+     SET feedback = ?, decision = ?, feedback_submitted_at = datetime('now'), updated_at = datetime('now')
+     WHERE id = ?`,
+    [parsed.data.feedback, parsed.data.decision, targetId]
+  );
+  saveDb();
+
+  const updated = one(db, 'SELECT * FROM interview_roster WHERE id = ?', [targetId]);
+  await audit(req, 'Submitted Interview Feedback', updated.candidate_name, `R${updated.round_number} · ${updated.decision}`);
+  await notifyRoles(
+    ['TA'],
+    'Interview Feedback Submitted',
+    `${updated.panel_name} submitted ${updated.decision} feedback for ${updated.candidate_name} (${updated.job_title}, R${updated.round_number}).`
+  );
 
   res.json(parseRoster(updated));
 });

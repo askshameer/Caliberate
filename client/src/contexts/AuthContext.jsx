@@ -16,17 +16,25 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(readCachedUser);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [setupChecked, setSetupChecked] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [configError, setConfigError] = useState('');
   const [configAttempt, setConfigAttempt] = useState(0);
-  const retryConfig = useCallback(() => setConfigAttempt(attempt => attempt + 1), []);
+  const retryConfig = useCallback(() => {
+    setConfigLoaded(false);
+    setConfigError('');
+    setConfigAttempt(attempt => attempt + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     let retryTimer;
 
-    setConfigLoaded(false);
-    setConfigError('');
+    apiGet('/setup/status')
+      .then((status) => { if (!cancelled) setSetupRequired(Boolean(status?.setupRequired)); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSetupChecked(true); });
     apiGet('/auth/config')
       .then((config) => {
         if (!config || typeof config.demoMode !== 'boolean') throw new Error('Invalid sign-in configuration.');
@@ -97,6 +105,23 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const completeSetup = useCallback(async (payload) => {
+    return apiPost('/setup', payload);
+  }, []);
+
+  const finishSetup = useCallback(() => {
+    setSetupRequired(false);
+    retryConfig();
+  }, [retryConfig]);
+
+  const restartSetup = useCallback(() => {
+    localStorage.removeItem('caliberate_user');
+    localStorage.removeItem('caliberate_token');
+    setCurrentUser(null);
+    setDemoMode(false);
+    setSetupRequired(true);
+  }, []);
+
   const refreshUser = useCallback(async () => {
     const user = await apiGet('/auth/me');
     setCurrentUser(user);
@@ -112,6 +137,11 @@ export function AuthProvider({ children }) {
     refreshUser,
     loading,
     demoMode,
+    setupRequired,
+    setupChecked,
+    completeSetup,
+    finishSetup,
+    restartSetup,
     configLoaded,
     configError,
     retryConfig,

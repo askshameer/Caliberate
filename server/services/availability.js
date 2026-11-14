@@ -29,8 +29,14 @@ export function expandRecurring(recurring, now = new Date()) {
 }
 
 export function effectiveSlots(timeSlots, recurring, now = new Date()) {
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 14);
   const merged = new Map();
   for (const s of [...(timeSlots || []), ...expandRecurring(recurring, now)]) {
+    const start = new Date(`${s.date}T${s.time}:00`);
+    if (!(start > now && start >= weekStart && start < weekEnd) || start.getDay() === 0 || start.getDay() === 6) continue;
     merged.set(`${s.date}|${s.time}`, { date: s.date, time: s.time });
   }
   return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));

@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import React, { useState } from 'react';
 import { SKILL_TAXONOMY } from '../utils/constants';
+import { slotDays, editableSlots } from '../utils/availability';
 
 const inputCls = 'w-full rounded-lg border border-slate-200 p-2 outline-none focus:border-teal-500';
 const labelCls = 'block text-slate-500 font-semibold mb-1';
@@ -41,7 +42,8 @@ const TITLES = {
   'panel-form': 'Panel Member',
   'panel-profile': 'My Interview Profile',
   'schedule-interview': 'Schedule Interview',
-  'reschedule-interview': 'Reschedule Interview'
+  'reschedule-interview': 'Reschedule Interview',
+  'interview-feedback': 'Interview Feedback'
 };
 
 const parseSkills = (value) => String(value || '')
@@ -56,22 +58,6 @@ const toDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1)
 
 // Next two working weeks (Monday–Friday) starting from the current calendar
 // week (Monday) — the only window a panel member can set availability for.
-const slotDays = () => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const days = [];
-  for (let i = 0; i < 14; i += 1) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const weekday = d.getDay();
-    if (weekday === 0 || weekday === 6) continue;
-    days.push(toDateKey(d));
-  }
-  return days; // 10 working days (5 current week + 5 next week)
-};
-
 function SlotPicker({ slotKeys, onToggle }) {
   const days = slotDays();
   const [currentWeek, nextWeek] = [days.slice(0, 5), days.slice(5)];
@@ -146,7 +132,7 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
   const [selectedRequestId, setSelectedRequestId] = useState(() => (isResched ? modal?.data?.requestId : modal?.data?.id) || null);
   const [selectedPanelId, setSelectedPanelId] = useState(() => (isResched ? String(modal?.data?.panelId || '') : null));
   const [selectedSlot, setSelectedSlot] = useState(() => (isResched ? modal?.data?.scheduledAt || '' : ''));
-  const [slotKeys, setSlotKeys] = useState(() => new Set((modal?.data?.timeSlots || []).map((s) => `${s.date}|${s.time}`)));
+  const [slotKeys, setSlotKeys] = useState(() => new Set(editableSlots(modal?.data?.timeSlots || []).map((s) => `${s.date}|${s.time}`)));
   const [selectedDomain, setSelectedDomain] = useState(() => (isResched ? (panels.find((p) => p.id === modal?.data?.panelId)?.domains || [])[0] || '' : ''));
   const [recurring, setRecurring] = useState(() => (modal?.data?.recurringSlots || []).length > 0);
 
@@ -157,20 +143,18 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
     return next;
   });
 
-  // Past slots can no longer be offered, so they are dropped on save.
-  const slotKeysToArray = () => [...slotKeys].sort()
-    .filter((key) => !isPastSlot(...key.split('|')))
+  // Never submit hidden, expired or out-of-window selections.
+  const slotKeysToArray = () => editableSlots([...slotKeys].sort()
     .map((key) => {
       const [date, time] = key.split('|');
       return { date, time };
-    });
+    }));
 
   // Weekly pattern (Mon=1 ... Fri=5) derived from the selected slots.
   const recurringSlotsArray = () => {
     if (!recurring) return [];
     const seen = new Map();
-    for (const key of slotKeys) {
-      const [date, time] = key.split('|');
+    for (const { date, time } of slotKeysToArray()) {
       const weekday = new Date(`${date}T00:00:00`).getDay();
       if (weekday >= 1 && weekday <= 5) seen.set(`${weekday}|${time}`, { weekday, time });
     }
@@ -756,6 +740,44 @@ export default function Modals({ modal, onClose, today, handlers, notify, onChan
               <Field label="Notes" className="col-span-2"><textarea name="notes" rows={2} defaultValue={isResched ? (data.notes || '') : ''} className={inputCls} /></Field>
             </div>
             <Actions onCancel={onClose} submitLabel={isResched ? 'Reschedule & Block Panel Time' : 'Schedule & Block Panel Time'} />
+          </form>
+        )}
+
+        {type === 'interview-feedback' && (
+          <form
+            className="space-y-3 text-xs"
+            onSubmit={(e) => {
+              const v = fd(e);
+              if (!v.decision) return notify('Select a decision (SELECT, REJECT, or HOLD).', 'error');
+              if (!v.feedback.trim() || v.feedback.trim().length < 3) return notify('Please enter interview feedback (at least 3 characters).', 'error');
+              handlers.submitInterviewFeedback(data.id, { decision: v.decision, feedback: v.feedback.trim() });
+            }}
+          >
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="font-bold text-slate-800">{data.candidateName}</p>
+              <p className="text-xs text-slate-500">{data.jobTitle} · R{data.roundNumber}{data.level ? ` (${data.level})` : ''} · {data.interviewType}</p>
+              <p className="mt-0.5 text-xs text-slate-400">Scheduled: {data.scheduledAt}</p>
+            </div>
+            <Field label="Decision">
+              <select name="decision" defaultValue={data?.decision || ''} required className={inputCls}>
+                <option value="">Select decision…</option>
+                <option value="SELECT">SELECT</option>
+                <option value="REJECT">REJECT</option>
+                <option value="HOLD">HOLD</option>
+              </select>
+            </Field>
+            <Field label="Interview Feedback">
+              <textarea
+                name="feedback"
+                rows={4}
+                required
+                minLength={3}
+                defaultValue={data?.feedback || ''}
+                placeholder="Share technical assessment, strengths, areas of concern, and hiring recommendation…"
+                className={inputCls}
+              />
+            </Field>
+            <Actions onCancel={onClose} submitLabel={data?.decision ? 'Update Feedback' : 'Submit Feedback'} />
           </form>
         )}
       </div>

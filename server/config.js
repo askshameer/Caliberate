@@ -29,7 +29,13 @@ function list(value) {
     .filter(Boolean);
 }
 
-const demoMode = bool(process.env.DEMO_MODE, !isProduction);
+// Demo/clean mode is chosen in the first-run setup wizard and stored in the
+// database. DEMO_MODE / SEED_DEMO_DATA / ADMIN_* env vars still work for
+// non-interactive deployments (they provision the first start automatically).
+const envProvisioned = bool(process.env.DEMO_MODE)
+  || bool(process.env.SEED_DEMO_DATA)
+  || Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
+const demoMode = bool(process.env.DEMO_MODE, false);
 const jwtSecret = process.env.JWT_SECRET || (isProduction ? '' : 'caliberate-development-only-secret-change-me-2026');
 
 if (isProduction && (!jwtSecret || jwtSecret.length < 32 || /replace-with|change-me|development-only/i.test(jwtSecret))) {
@@ -55,12 +61,6 @@ const bootstrapAdmin = {
   name: process.env.ADMIN_NAME || 'Platform Administrator',
 };
 
-if (!demoMode && !isTest && (!bootstrapAdmin.email || !bootstrapAdmin.password)) {
-  if (!fs.existsSync(dbPath)) {
-    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD are required to bootstrap the first production administrator.');
-  }
-}
-
 if (!demoMode && !isTest && !fs.existsSync(dbPath) && bootstrapAdmin.password) {
   const strong = bootstrapAdmin.password.length >= 12
     && /[A-Z]/.test(bootstrapAdmin.password)
@@ -85,6 +85,7 @@ export const config = {
   cookieSecure: bool(process.env.COOKIE_SECURE, isProduction),
   cookieSameSite: process.env.COOKIE_SAME_SITE || 'strict',
   bcryptRounds: int(process.env.BCRYPT_ROUNDS, 12),
+  envProvisioned,
   demoMode,
   seedDemoData: bool(process.env.SEED_DEMO_DATA, demoMode),
   dbPath,
@@ -98,7 +99,7 @@ export const config = {
     authMax: int(process.env.AUTH_RATE_LIMIT_MAX, 20),
   },
   logFormat: process.env.LOG_FORMAT || (isProduction ? 'combined' : 'dev'),
-  appVersion: process.env.APP_VERSION || '2.0.0',
+  appVersion: process.env.APP_VERSION || '2.5.0',
 };
 
 export default config;

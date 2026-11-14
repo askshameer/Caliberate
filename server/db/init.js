@@ -2,7 +2,9 @@ import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { config } from '../config.js';
+import { expandRecurring } from '../services/availability.js';
 
 const DB_PATH = config.dbPath;
 
@@ -203,6 +205,9 @@ CREATE TABLE IF NOT EXISTS interview_roster (
   duration_minutes INTEGER DEFAULT 60,
   status TEXT DEFAULT 'Scheduled' CHECK(status IN ('Scheduled','Completed','Cancelled','Rescheduled')),
   notes TEXT DEFAULT '',
+  feedback TEXT DEFAULT '',
+  decision TEXT DEFAULT '' CHECK(decision IN ('','SELECT','REJECT','HOLD')),
+  feedback_submitted_at TEXT,
   created_by TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
@@ -358,19 +363,8 @@ function toLocalDate(date) {
 // ({ date, time }) and always land in the current or next calendar week so they
 // follow the panel-slot policy.
 function generatePanelSlots() {
-  const slots = [];
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const times = ['08:00', '10:00', '13:00', '15:00', '17:00'];
-  for (let offset = 1; offset <= 14; offset += 1) {
-    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-    const weekday = day.getDay();
-    if (weekday === 0 || weekday === 6) continue;
-    for (const time of times) {
-      slots.push({ date: toLocalDate(day), time });
-    }
-  }
-  return slots;
+  return expandRecurring([1, 2, 3, 4, 5].flatMap(weekday => times.map(time => ({ weekday, time }))));
 }
 
 function tableColumns(db, table) {
@@ -454,6 +448,15 @@ function migrate(db) {
   ensureColumn(db, 'settings', 'updated_at', 'TEXT');
   ensureColumn(db, 'panels', 'domains', "TEXT DEFAULT '[]'");
   ensureColumn(db, 'panels', 'recurring_slots', "TEXT DEFAULT '[]'");
+  ensureColumn(db, 'interview_roster', 'feedback', "TEXT DEFAULT ''");
+  ensureColumn(db, 'interview_roster', 'decision', "TEXT DEFAULT ''");
+  ensureColumn(db, 'interview_roster', 'feedback_submitted_at', 'TEXT');
+  db.run('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)');
+  db.run(`CREATE TABLE IF NOT EXISTS login_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, email TEXT NOT NULL,
+    name TEXT, role TEXT, outcome TEXT NOT NULL, ip TEXT, user_agent TEXT,
+    time TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
 
   ensureColumn(db, 'audit_log', 'before', 'TEXT');
   ensureColumn(db, 'audit_log', 'after', 'TEXT');
@@ -568,16 +571,30 @@ export async function getDb() {
   _db.run('PRAGMA foreign_keys = ON');
   _db.run(SCHEMA);
   migrate(_db);
+  config.sessionEpoch = getMeta(_db, 'session_epoch') || randomUUID();
+  setMeta(_db, 'session_epoch', config.sessionEpoch);
 
-  // Check if already seeded. Fresh databases get the full seed (which includes
-  // hiring demo data); existing demo databases get the hiring dataset backfilled.
-  const userCount = _db.exec("SELECT COUNT(*) FROM users");
-  if (userCount[0].values[0][0] === 0) {
-    await seedDatabase(_db);
+  // The chosen application mode ('demo' | 'clean') lives in app_meta and always
+  // wins over environment defaults, so a reset is never silently undone on restart.
+  const userCount = _db.exec('SELECT COUNT(*) FROM users')[0].values[0][0];
+  const storedMode = getMeta(_db, 'app_mode');
+  if (storedMode) {
+    config.demoMode = storedMode === 'demo';
+    config.seedDemoData = config.demoMode;
+  }
+
+  if (userCount === 0) {
+    // Fresh database: provision from env vars if supplied, otherwise wait for the
+    // first-run setup wizard (POST /api/setup).
+    if (config.envProvisioned && storedMode !== 'setup') {
+      await seedDatabase(_db);
+      setMeta(_db, 'app_mode', config.seedDemoData ? 'demo' : 'clean');
+      saveDb();
+    }
   } else {
+    if (!storedMode) setMeta(_db, 'app_mode', config.seedDemoData ? 'demo' : 'clean');
     if (config.seedDemoData) {
-      // An existing database (e.g. one first created with only the bootstrap admin)
-      // may be missing the demo accounts/dataset. Backfill them once; every insert
+      // Backfill demo accounts/dataset into an existing database once; every insert
       // is INSERT OR IGNORE so existing records are never overwritten.
       const demoUser = _db.exec("SELECT COUNT(*) FROM users WHERE id = 'usr-ops'");
       const peopleCount = _db.exec('SELECT COUNT(*) FROM people');
@@ -588,7 +605,6 @@ export async function getDb() {
     }
     saveDb();
   }
-
   return _db;
 }
 
@@ -637,15 +653,97 @@ export function transaction(db, fn) {
   }
 }
 
+export function getMeta(db, key) {
+  const row = one(db, 'SELECT value FROM app_meta WHERE key = ?', [key]);
+  return row ? row.value : null;
+}
+
+export function setMeta(db, key, value) {
+  db.run('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)', [key, value]);
+}
+
+export async function isSetupRequired() {
+  const db = await getDb();
+  return db.exec('SELECT COUNT(*) FROM users')[0].values[0][0] === 0;
+}
+
+// First-run setup. mode 'demo' loads the demo accounts + dataset; mode 'clean'
+// creates only the chosen administrator.
+export async function setupApplication({ mode, admin }) {
+  const db = await getDb();
+  if (db.exec('SELECT COUNT(*) FROM users')[0].values[0][0] !== 0) {
+    throw new Error('Application is already configured.');
+  }
+  config.demoMode = mode === 'demo';
+  config.seedDemoData = config.demoMode;
+  if (mode === 'clean') config.bootstrapAdmin = { ...config.bootstrapAdmin, ...admin };
+  await seedDatabase(db);
+  setMeta(db, 'app_mode', mode);
+  saveDb();
+}
+
+const BUSINESS_TABLES = ['applications', 'staffing_requests', 'interview_roster', 'external_requests', 'panels', 'people', 'jobs', 'notifications', 'audit_log', 'settings'];
+
+// Returns the application to its original, demo-free state. Everything is wiped
+// including administrator credentials, returning to first-time setup.
+export async function resetToClean() {
+  const db = await getDb();
+  transaction(db, () => {
+    for (const table of BUSINESS_TABLES) db.run(`DELETE FROM ${table}`);
+    db.run('DELETE FROM users');
+    db.run('DELETE FROM login_history');
+    db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('thresholds', ?)", [JSON.stringify(INITIAL_SETTINGS)]);
+    setMeta(db, 'app_mode', 'setup');
+    config.sessionEpoch = randomUUID();
+    setMeta(db, 'session_epoch', config.sessionEpoch);
+  });
+  config.demoMode = false;
+  config.seedDemoData = false;
+  try {
+    for (const file of fs.readdirSync(config.uploadDir)) {
+      const target = path.join(config.uploadDir, file);
+      if (fs.statSync(target).isFile()) fs.unlinkSync(target);
+    }
+  } catch { /* upload directory may not exist */ }
+  saveDb();
+}
+
+// Re-populates the demo environment (typically after a reset). Business data is
+// replaced with the demo dataset; the acting administrator keeps their login and
+// any imported user whose email collides with a demo account is replaced by the
+// demo account so the two never clash.
+export async function loadDemoData(adminId) {
+  const db = await getDb();
+  transaction(db, () => {
+    for (const table of BUSINESS_TABLES) db.run(`DELETE FROM ${table}`);
+    for (const u of DEMO_USERS) {
+      db.run('DELETE FROM users WHERE lower(email) = lower(?) AND id != ? AND id != ?', [u.email, u.id, adminId]);
+    }
+    db.run("UPDATE users SET person_id = NULL WHERE id = ?", [adminId]);
+  });
+  config.demoMode = true;
+  config.seedDemoData = true;
+  await seedDatabase(db);
+  // Panel-role users added outside the demo set (e.g. imported) need a profile again.
+  const orphans = all(db, "SELECT * FROM users WHERE role = 'Panel' AND id NOT IN (SELECT user_id FROM panels WHERE user_id IS NOT NULL)");
+  for (const u of orphans) {
+    db.run(
+      `INSERT INTO panels (user_id, name, email, role_title, practice, skills, domains, time_slots, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'Digital', '[]', '[]', '[]', ?, datetime('now'), datetime('now'))`,
+      [u.id, u.name, u.email, u.role_title || '', u.active ? 1 : 0]
+    );
+  }
+  setMeta(db, 'app_mode', 'demo');
+  saveDb();
+}
 // Wipes all business data and re-inserts the demo dataset (users are preserved)
 export async function reseedDatabase() {
   const db = await getDb();
-  for (const table of ['people', 'jobs', 'applications', 'staffing_requests', 'interview_roster', 'external_requests', 'panels', 'notifications', 'audit_log', 'settings']) {
+  for (const table of BUSINESS_TABLES) {
     db.run(`DELETE FROM ${table}`);
   }
   await seedDatabase(db);
 }
-
 async function seedDatabase(db) {
   const hashedPassword = bcrypt.hashSync('caliberate123', config.bcryptRounds);
 

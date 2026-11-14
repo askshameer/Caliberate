@@ -23,6 +23,7 @@ import externalRequestRoutes from './routes/externalRequests.js';
 import panelRoutes from './routes/panels.js';
 import rosterRoutes from './routes/roster.js';
 import notificationRoutes from './routes/notifications.js';
+import setupRoutes from './routes/setup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -181,6 +182,7 @@ app.use('/api', (req, res, next) => {
 });
 
 // API Routes
+app.use('/api/setup', setupRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/people', peopleRoutes);
 app.use('/api/jobs', jobsRoutes);
@@ -252,9 +254,9 @@ let server;
 
 getDb().then(() => {
   server = app.listen(config.port, () => {
-    console.log(`\n🚀 Caliberate API Server running at http://localhost:${config.port}`);
-    console.log(`   API endpoints:  http://localhost:${config.port}/api/`);
-    console.log(`   Client app:     http://localhost:${config.port}/`);
+    console.log(`\n🚀 Caliberate API Server running at http://localhost:${server.address().port}`);
+    console.log(`   API endpoints:  http://localhost:${server.address().port}/api/`);
+    console.log(`   Client app:     http://localhost:${server.address().port}/`);
     console.log(`   Environment:    ${config.env}`);
     console.log(`   Demo mode:      ${config.demoMode ? 'enabled' : 'disabled'}`);
     console.log(`   Database:       ${config.dbPath}\n`);
