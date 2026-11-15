@@ -254,9 +254,11 @@ let server;
 
 getDb().then(() => {
   server = app.listen(config.port, () => {
-    console.log(`\n🚀 Caliberate API Server running at http://localhost:${server.address().port}`);
-    console.log(`   API endpoints:  http://localhost:${server.address().port}/api/`);
-    console.log(`   Client app:     http://localhost:${server.address().port}/`);
+    const addr = server.address();
+    const listenTarget = typeof addr === 'string' ? addr : `http://localhost:${addr?.port}`;
+    console.log(`\n🚀 Caliberate API Server running at ${listenTarget}`);
+    console.log(`   API endpoints:  ${listenTarget}/api/`);
+    console.log(`   Client app:     ${listenTarget}/`);
     console.log(`   Environment:    ${config.env}`);
     console.log(`   Demo mode:      ${config.demoMode ? 'enabled' : 'disabled'}`);
     console.log(`   Database:       ${config.dbPath}\n`);

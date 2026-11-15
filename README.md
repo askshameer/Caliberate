@@ -279,6 +279,22 @@ sudo nginx -t && sudo systemctl reload nginx
 
 If you terminate TLS/HTTPS on Nginx (via Certbot or an internal CA certificate), set `COOKIE_SECURE=true` and `TRUST_PROXY=1` in `/opt/caliberate/.env`, then run `sudo systemctl restart caliberate`.
 
+## Hostinger Node.js Web App deployment
+
+Caliberate works out of the box with Hostinger's **Node.js Web App** hosting (hPanel) as well as Hostinger VPS:
+
+1. **In hPanel → Websites → Add / Manage Node.js Web App:**
+   - **Repository:** `https://github.com/askshameer/Caliberate` (branch `main`)
+   - **Node.js version:** `20` or `22`
+   - **Build command:** `npm run build` (automatically installs `server/` and `client/` dependencies and builds `client/dist`)
+   - **Start command:** `npm start` (or entry point `server/index.js`)
+2. **Environment variables (optional for first boot):**
+   - `NODE_ENV=production`
+   - `COOKIE_SECURE=true` (Hostinger terminates HTTPS in front of the app)
+   - `JWT_SECRET` — optional; if omitted, Caliberate generates and persists a 48-byte secret in `server/db/.jwt_secret` automatically (recommended to set explicitly in hPanel for production).
+   - Leave `DEMO_MODE`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` unset to use the browser **First-Time Setup Wizard** on first visit.
+3. **Persistence note:** On Hostinger Node.js Web App hosting, ensure `server/db/` and `server/uploads/` are retained across deploys (or point `DB_PATH` and `UPLOAD_DIR` to a persistent directory outside the deploy folder). Always download a snapshot from **Backup & Restore** before major updates.
+
 If using a firewall (`ufw`):
 
 ```bash

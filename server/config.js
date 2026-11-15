@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
@@ -36,12 +37,6 @@ const envProvisioned = bool(process.env.DEMO_MODE)
   || bool(process.env.SEED_DEMO_DATA)
   || Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD);
 const demoMode = bool(process.env.DEMO_MODE, false);
-const jwtSecret = process.env.JWT_SECRET || (isProduction ? '' : 'caliberate-development-only-secret-change-me-2026');
-
-if (isProduction && (!jwtSecret || jwtSecret.length < 32 || /replace-with|change-me|development-only/i.test(jwtSecret))) {
-  throw new Error('JWT_SECRET must be set to at least 32 characters of high-entropy random data in production.');
-}
-
 const dbPath = process.env.DB_PATH
   ? path.resolve(serverRoot, process.env.DB_PATH)
   : path.join(serverRoot, 'db', 'caliberate.db');
@@ -49,6 +44,34 @@ const dbPath = process.env.DB_PATH
 const uploadDir = process.env.UPLOAD_DIR
   ? path.resolve(serverRoot, process.env.UPLOAD_DIR)
   : path.join(serverRoot, 'uploads');
+
+function resolveJwtSecret() {
+  const configured = process.env.JWT_SECRET;
+  if (configured !== undefined && configured !== '') {
+    if (isProduction && (configured.length < 32 || /replace-with|change-me|development-only/i.test(configured))) {
+      throw new Error('JWT_SECRET must be set to at least 32 characters of high-entropy random data in production.');
+    }
+    return configured;
+  }
+  if (!isProduction) return 'caliberate-development-only-secret-change-me-2026';
+
+  // For managed Node.js web apps (e.g. Hostinger) booted before env vars are
+  // configured, generate a strong secret once and persist it beside the DB.
+  const secretFile = path.join(path.dirname(dbPath), '.jwt_secret');
+  if (fs.existsSync(secretFile)) {
+    const stored = fs.readFileSync(secretFile, 'utf8').trim();
+    if (stored.length >= 32) return stored;
+  }
+  const generated = crypto.randomBytes(48).toString('base64url');
+  fs.mkdirSync(path.dirname(secretFile), { recursive: true });
+  fs.writeFileSync(secretFile, generated, { mode: 0o600 });
+  return generated;
+}
+
+const jwtSecret = resolveJwtSecret();
+
+const rawPort = process.env.PORT?.trim();
+const port = rawPort && !/^\d+$/.test(rawPort) ? rawPort : int(rawPort, 3001);
 
 const corsOrigins = list(process.env.CORS_ORIGINS);
 if (!isProduction && corsOrigins.length === 0) {
@@ -77,7 +100,7 @@ export const config = {
   env,
   isProduction,
   isTest,
-  port: int(process.env.PORT, 3001),
+  port,
   trustProxy: process.env.TRUST_PROXY || (isProduction ? '1' : ''),
   jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '12h',
@@ -99,7 +122,7 @@ export const config = {
     authMax: int(process.env.AUTH_RATE_LIMIT_MAX, 20),
   },
   logFormat: process.env.LOG_FORMAT || (isProduction ? 'combined' : 'dev'),
-  appVersion: process.env.APP_VERSION || '2.5.0',
+  appVersion: process.env.APP_VERSION || '2.5.1',
 };
 
 export default config;
